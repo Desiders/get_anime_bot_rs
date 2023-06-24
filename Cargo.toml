@@ -1,0 +1,18 @@
+[package]
+name = "get_anime_bot_rs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+telers = { git = "https://github.com/Desiders/telers.git", branch = "dev-1.x" }
+tokio = { version = "1.28", features = ["macros"] }
+sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "postgres", "migrate", "uuid", "time" ] }
+serde = { version = "1.0", features = ["derive"] }
+sea-query = "0.28"
+serde_json = "1.0"
+log = "0.4"
+pretty_env_logger = "0.4"
+thiserror = "1.0"
+async-trait = "0.1"

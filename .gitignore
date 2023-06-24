@@ -1,0 +1,16 @@
+*.mo
+
+.env
+
+.vscode/
+
+Cargo.lock
+
+target/
+
+.venv/
+venv/
+
+# Added by cargo
+
+/target
