@@ -1,11 +1,15 @@
 mod application;
 mod config;
-mod domain;
+mod filters;
 mod handlers;
 mod infrastructure;
+mod middlewares;
 
 use config::read_config_from_env;
+use filters::IsUnknownUser;
 use handlers::{source as source_handler, start as start_handler};
+use middlewares::DatabaseMiddleware;
+use sqlx::{PgPool, Postgres};
 use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
 
 #[tokio::main(flavor = "current_thread")]
@@ -29,19 +33,60 @@ async fn main() {
         }
     };
 
+    let url = format!(
+        "postgres://{user}:{password}@{host}:{port}/{db}",
+        user = config.database.user,
+        password = config.database.password,
+        host = config.database.host,
+        port = config.database.port,
+        db = config.database.db,
+    );
+    let pool = match PgPool::connect(&url).await {
+        Ok(pool) => {
+            log::debug!("Database pool created");
+            pool
+        }
+        Err(err) => {
+            eprintln!("Error creating database pool: {err}");
+            std::process::exit(1);
+        }
+    };
+
+    let database_middleware = DatabaseMiddleware::new(pool);
+
     let bot = Bot::new(config.bot.token);
 
-    let mut router = Router::new("main");
-    router
+    let mut main_router = Router::new("main");
+    main_router
+        .telegram_observers_mut()
+        .iter_mut()
+        .for_each(|observer| {
+            observer
+                .outer_middlewares
+                .register(database_middleware.clone())
+        });
+
+    let mut unknown_user_router = Router::new("unknown_user");
+
+    unknown_user_router
+        .message
+        .filter(IsUnknownUser::<Postgres>::new());
+
+    let mut user_router = Router::new("users");
+
+    user_router
         .message
         .register(start_handler)
         .filter(Command::many(["start", "help"]));
-    router
+    user_router
         .message
         .register(source_handler)
         .filter(Command::many(["source", "about"]));
 
-    let dispatcher = Dispatcher::builder().bot(bot).main_router(router).build();
+    main_router.include(unknown_user_router);
+    main_router.include(user_router);
+
+    let dispatcher = Dispatcher::builder().bot(bot).router(main_router).build();
 
     match dispatcher
         .to_service_provider_default()
