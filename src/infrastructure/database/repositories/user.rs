@@ -1,4 +1,3 @@
-use super::base::Repo;
 use crate::{
     application::user::{
         dto::{
@@ -13,20 +12,20 @@ use crate::{
 use async_trait::async_trait;
 use sea_query::{Expr, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
-use sqlx::{pool::PoolConnection, Error, Postgres};
+use sqlx::{Error, PgConnection};
 
-pub struct UserRepoImpl<Executor> {
-    executor: Executor,
+pub struct UserRepoImpl<Conn> {
+    conn: Conn,
 }
 
-impl<Executor> Repo<Executor> for UserRepoImpl<Executor> {
-    fn new(executor: Executor) -> Self {
-        Self { executor }
+impl<Conn> UserRepoImpl<Conn> {
+    pub fn new(conn: Conn) -> Self {
+        Self { conn }
     }
 }
 
 #[async_trait]
-impl UserRepo<Postgres> for UserRepoImpl<PoolConnection<Postgres>> {
+impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
     type CreateError = Error;
     type UpdateLanguageCodeError = Error;
     type UpdateShowNsfwError = Error;
@@ -49,7 +48,7 @@ impl UserRepo<Postgres> for UserRepoImpl<PoolConnection<Postgres>> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
-            .execute(&mut self.executor)
+            .execute(&mut *self.conn)
             .await
             .map(|_| ())
     }
@@ -65,7 +64,7 @@ impl UserRepo<Postgres> for UserRepoImpl<PoolConnection<Postgres>> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
-            .execute(&mut self.executor)
+            .execute(&mut *self.conn)
             .await
             .map(|_| ())
     }
@@ -81,24 +80,24 @@ impl UserRepo<Postgres> for UserRepoImpl<PoolConnection<Postgres>> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
-            .execute(&mut self.executor)
+            .execute(&mut *self.conn)
             .await
             .map(|_| ())
     }
 }
 
-pub struct UserReaderImpl<Executor> {
-    executor: Executor,
+pub struct UserReaderImpl<Conn> {
+    conn: Conn,
 }
 
-impl<Executor> Repo<Executor> for UserReaderImpl<Executor> {
-    fn new(executor: Executor) -> Self {
-        Self { executor }
+impl<Conn> UserReaderImpl<Conn> {
+    pub fn new(conn: Conn) -> Self {
+        Self { conn }
     }
 }
 
 #[async_trait]
-impl UserReader<Postgres> for UserReaderImpl<PoolConnection<Postgres>> {
+impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
     type GetError = Error;
     type GetByIdError = Error;
 
@@ -116,7 +115,7 @@ impl UserReader<Postgres> for UserReaderImpl<PoolConnection<Postgres>> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
-            .fetch_one(&mut self.executor)
+            .fetch_one(&mut *self.conn)
             .await
             .map(|user_model: UserModel| user_model.into())
     }
@@ -135,7 +134,7 @@ impl UserReader<Postgres> for UserReaderImpl<PoolConnection<Postgres>> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
-            .fetch_one(&mut self.executor)
+            .fetch_one(&mut *self.conn)
             .await
             .map(|user_model: UserModel| user_model.into())
     }
