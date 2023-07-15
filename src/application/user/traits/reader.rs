@@ -3,7 +3,7 @@ use crate::application::user::dto::{GetUserById, GetUserByTgId, User};
 use async_trait::async_trait;
 
 #[async_trait]
-pub trait UserReader<Database> {
+pub trait UserReader {
     type GetError;
     type GetByIdError;
 
