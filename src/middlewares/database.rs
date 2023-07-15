@@ -1,30 +1,33 @@
 use async_trait::async_trait;
-use sqlx::{self, Pool};
+use sqlx::{Database, Pool, Postgres};
 use telers::{
     error::{EventErrorKind, MiddlewareError},
     event::EventReturn,
     middlewares::outer::{Middleware, MiddlewareResponse},
     router::Request,
 };
+use tokio::sync::Mutex;
+
+use crate::infrastructure::database::SqlxUnitOfWork;
 
 #[derive(Debug)]
-pub struct DatabaseMiddleware<Database>
+pub struct DatabaseMiddleware<DB>
 where
-    Database: sqlx::Database,
+    DB: Database,
 {
-    pool: sqlx::Pool<Database>,
+    pool: Pool<DB>,
 }
 
-impl<Database> DatabaseMiddleware<Database>
+impl<DB> DatabaseMiddleware<DB>
 where
-    Database: sqlx::Database,
+    DB: Database,
 {
-    pub fn new(pool: Pool<Database>) -> Self {
+    pub fn new(pool: Pool<DB>) -> Self {
         Self { pool }
     }
 }
 
-impl Clone for DatabaseMiddleware<sqlx::Postgres> {
+impl Clone for DatabaseMiddleware<Postgres> {
     fn clone(&self) -> Self {
         Self {
             pool: self.pool.clone(),
@@ -33,18 +36,17 @@ impl Clone for DatabaseMiddleware<sqlx::Postgres> {
 }
 
 #[async_trait]
-impl<Database, Client> Middleware<Client> for DatabaseMiddleware<Database>
+impl<DB, Client> Middleware<Client> for DatabaseMiddleware<DB>
 where
-    Database: sqlx::Database,
-    Database::Connection: Sync,
+    DB: Database,
     Client: Send + Sync + 'static,
 {
     async fn call(
         &self,
         request: Request<Client>,
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
-        let pool_connection = match self.pool.acquire().await {
-            Ok(pool_connection) => pool_connection,
+        let conn = match self.pool.acquire().await {
+            Ok(pool_connection) => pool_connection.detach(),
             Err(error) => {
                 log::error!("Failed to acquire a connection from the pool: {error}");
 
@@ -52,9 +54,9 @@ where
             }
         };
 
-        request
-            .context
-            .insert("pool_connection", Box::new(pool_connection));
+        let uow = SqlxUnitOfWork::<DB>::new(conn);
+
+        request.context.insert("uow", Box::new(Mutex::new(uow)));
 
         Ok((request, EventReturn::Finish))
     }
