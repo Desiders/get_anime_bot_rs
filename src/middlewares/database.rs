@@ -47,10 +47,10 @@ where
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
         let conn = match self.pool.acquire().await {
             Ok(pool_connection) => pool_connection.detach(),
-            Err(error) => {
-                log::error!("Failed to acquire a connection from the pool: {error}");
+            Err(err) => {
+                log::error!("Failed to acquire a connection from the pool: {err}");
 
-                return Err(MiddlewareError::new(error).into());
+                return Err(MiddlewareError::new(err).into());
             }
         };
 
