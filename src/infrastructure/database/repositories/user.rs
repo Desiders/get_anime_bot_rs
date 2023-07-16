@@ -60,7 +60,7 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
         let (sql, values) = Query::update()
             .table(UserTable::Table)
             .values([(UserTable::LanguageCode, user.language_code.into())])
-            .and_where(Expr::col(UserTable::Id).is(user.id))
+            .and_where(Expr::col(UserTable::Id).eq(user.id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
@@ -76,7 +76,7 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
         let (sql, values) = Query::update()
             .table(UserTable::Table)
             .values([(UserTable::ShowNsfw, user.show_nsfw.into())])
-            .and_where(Expr::col(UserTable::Id).is(user.id))
+            .and_where(Expr::col(UserTable::Id).eq(user.id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
@@ -111,7 +111,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
                 UserTable::Created,
             ])
             .from(UserTable::Table)
-            .and_where(Expr::col(UserTable::Id).is(user.id))
+            .and_where(Expr::col(UserTable::Id).eq(user.id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
@@ -130,7 +130,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
                 UserTable::Created,
             ])
             .from(UserTable::Table)
-            .and_where(Expr::col(UserTable::TgId).is(user.tg_id))
+            .and_where(Expr::col(UserTable::TgId).eq(user.tg_id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
