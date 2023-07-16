@@ -6,9 +6,8 @@ mod infrastructure;
 mod middlewares;
 
 use config::read_config_from_env;
-use filters::IsUnknownUser;
 use handlers::{source as source_handler, start as start_handler};
-use middlewares::DatabaseMiddleware;
+use middlewares::{ACLMiddleware, DatabaseMiddleware};
 use sqlx::{PgPool, Postgres};
 use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
 
@@ -53,6 +52,7 @@ async fn main() {
     };
 
     let database_middleware = DatabaseMiddleware::new(pool);
+    let acl_middleware = ACLMiddleware::<Postgres>::new();
 
     let bot = Bot::new(config.bot.token);
 
@@ -63,14 +63,9 @@ async fn main() {
         .for_each(|observer| {
             observer
                 .outer_middlewares
-                .register(database_middleware.clone())
+                .register(database_middleware.clone());
+            observer.outer_middlewares.register(acl_middleware);
         });
-
-    let mut unknown_user_router = Router::new("unknown_user");
-
-    unknown_user_router
-        .message
-        .filter(IsUnknownUser::<Postgres>::new());
 
     let mut user_router = Router::new("users");
 
@@ -83,7 +78,6 @@ async fn main() {
         .register(source_handler)
         .filter(Command::many(["source", "about"]));
 
-    main_router.include(unknown_user_router);
     main_router.include(user_router);
 
     let dispatcher = Dispatcher::builder().bot(bot).router(main_router).build();
