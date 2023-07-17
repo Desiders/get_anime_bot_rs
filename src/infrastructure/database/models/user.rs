@@ -1,4 +1,3 @@
-use sea_query::Iden;
 use sqlx::{
     types::{time::Date, Uuid},
     FromRow,
@@ -25,14 +24,4 @@ impl From<User> for dto::User {
             created: user.created,
         }
     }
-}
-
-#[derive(Iden, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UserTable {
-    Table,
-    Id,
-    TgId,
-    LanguageCode,
-    ShowNsfw,
-    Created,
 }

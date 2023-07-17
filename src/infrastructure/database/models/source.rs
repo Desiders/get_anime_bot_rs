@@ -1,4 +1,3 @@
-use sea_query::Iden;
 use sqlx::{
     types::{time::Date, Uuid},
     FromRow,
@@ -10,13 +9,4 @@ pub struct Source {
     pub name: String,
     pub url: String,
     pub created: Date,
-}
-
-#[derive(Iden, Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SourceTable {
-    Table,
-    Id,
-    Name,
-    Url,
-    Created,
 }

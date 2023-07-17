@@ -6,11 +6,11 @@ use crate::{
         },
         traits::{UserReader, UserRepo},
     },
-    infrastructure::database::models::{User as UserModel, UserTable},
+    infrastructure::database::models::User as UserModel,
 };
 
 use async_trait::async_trait;
-use sea_query::{Expr, PostgresQueryBuilder, Query};
+use sea_query::{Alias, Expr, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
 use sqlx::{Error, PgConnection};
 
@@ -32,12 +32,12 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
 
     async fn create(&mut self, user: CreateUser) -> Result<(), Self::CreateError> {
         let (sql, values) = Query::insert()
-            .into_table(UserTable::Table)
+            .into_table(Alias::new("users"))
             .columns(vec![
-                UserTable::Id,
-                UserTable::TgId,
-                UserTable::LanguageCode,
-                UserTable::ShowNsfw,
+                Alias::new("id"),
+                Alias::new("tg_id"),
+                Alias::new("language_code"),
+                Alias::new("show_nsfw"),
             ])
             .values_panic([
                 user.id.into(),
@@ -58,9 +58,9 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
         user: UpdateUserLanguageCode,
     ) -> Result<(), Self::UpdateLanguageCodeError> {
         let (sql, values) = Query::update()
-            .table(UserTable::Table)
-            .values([(UserTable::LanguageCode, user.language_code.into())])
-            .and_where(Expr::col(UserTable::Id).eq(user.id))
+            .table(Alias::new("users"))
+            .values([(Alias::new("language_code"), user.language_code.into())])
+            .and_where(Expr::col(Alias::new("id")).eq(user.id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
@@ -74,9 +74,9 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
         user: UpdateUserShowNsfw,
     ) -> Result<(), Self::UpdateShowNsfwError> {
         let (sql, values) = Query::update()
-            .table(UserTable::Table)
-            .values([(UserTable::ShowNsfw, user.show_nsfw.into())])
-            .and_where(Expr::col(UserTable::Id).eq(user.id))
+            .table(Alias::new("users"))
+            .values([(Alias::new("show_nsfw"), user.show_nsfw.into())])
+            .and_where(Expr::col(Alias::new("id")).eq(user.id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
@@ -104,14 +104,14 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
     async fn get_by_id(&mut self, user: GetUserById) -> Result<User, Self::GetError> {
         let (sql, values) = Query::select()
             .columns([
-                UserTable::Id,
-                UserTable::TgId,
-                UserTable::LanguageCode,
-                UserTable::ShowNsfw,
-                UserTable::Created,
+                Alias::new("id"),
+                Alias::new("tg_id"),
+                Alias::new("language_code"),
+                Alias::new("show_nsfw"),
+                Alias::new("created"),
             ])
-            .from(UserTable::Table)
-            .and_where(Expr::col(UserTable::Id).eq(user.id))
+            .from(Alias::new("users"))
+            .and_where(Expr::col(Alias::new("id")).eq(user.id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
@@ -123,14 +123,14 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
     async fn get_by_tg_id(&mut self, user: GetUserByTgId) -> Result<User, Self::GetByIdError> {
         let (sql, values) = Query::select()
             .columns([
-                UserTable::Id,
-                UserTable::TgId,
-                UserTable::LanguageCode,
-                UserTable::ShowNsfw,
-                UserTable::Created,
+                Alias::new("id"),
+                Alias::new("tg_id"),
+                Alias::new("language_code"),
+                Alias::new("show_nsfw"),
+                Alias::new("created"),
             ])
-            .from(UserTable::Table)
-            .and_where(Expr::col(UserTable::TgId).eq(user.tg_id))
+            .from(Alias::new("users"))
+            .and_where(Expr::col(Alias::new("id")).eq(user.tg_id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
