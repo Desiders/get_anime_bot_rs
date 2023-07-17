@@ -6,7 +6,7 @@ RUN apt-get update \
 WORKDIR /app
 COPY . .
 
-FROM rust:1.65-buster AS build
+FROM rust:1.71-buster AS build
 WORKDIR /usr/src/app
 RUN USER=root cargo init
 COPY ./Cargo.toml .
