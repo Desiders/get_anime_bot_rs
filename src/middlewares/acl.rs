@@ -126,7 +126,7 @@ where
                     tg_id: create_user.tg_id,
                     language_code: create_user.language_code,
                     show_nsfw: create_user.show_nsfw,
-                    created: OffsetDateTime::now_utc().date(),
+                    created: OffsetDateTime::now_utc(),
                 };
 
                 context.insert("db_user", Box::new(user));

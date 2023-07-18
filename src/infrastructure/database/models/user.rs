@@ -1,5 +1,5 @@
 use sqlx::{
-    types::{time::Date, Uuid},
+    types::{time::OffsetDateTime, Uuid},
     FromRow,
 };
 
@@ -11,7 +11,7 @@ pub struct User {
     pub tg_id: i64,
     pub language_code: Option<String>,
     pub show_nsfw: Option<bool>,
-    pub created: Date,
+    pub created: OffsetDateTime,
 }
 
 impl From<User> for dto::User {

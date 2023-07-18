@@ -130,7 +130,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("users"))
-            .and_where(Expr::col(Alias::new("id")).eq(user.tg_id))
+            .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
