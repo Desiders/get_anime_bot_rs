@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 
 use crate::infrastructure::database::SqlxUnitOfWork;
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct DatabaseMiddleware<DB>
 where

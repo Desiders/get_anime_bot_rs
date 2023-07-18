@@ -2,6 +2,7 @@ use crate::application::user::dto::{GetUserById, GetUserByTgId, User};
 
 use async_trait::async_trait;
 
+#[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait UserReader {
     type GetError;

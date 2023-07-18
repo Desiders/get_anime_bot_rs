@@ -3,7 +3,6 @@ use std::{
     env::{self, VarError},
     num::ParseIntError,
 };
-use thiserror;
 
 pub struct Bot {
     pub token: String,
@@ -50,7 +49,7 @@ pub fn read_config_from_env() -> Result<Config, ErrorKind> {
                 Ok(port) => port.parse()?,
                 Err(err) => match err {
                     VarError::NotPresent => 5432,
-                    _ => {
+                    VarError::NotUnicode(_) => {
                         return Err(ErrorKind::Env {
                             source: err,
                             key: "POSTGRES_PORT".into(),
@@ -65,7 +64,7 @@ pub fn read_config_from_env() -> Result<Config, ErrorKind> {
                         source: err,
                         key: "POSTGRES_USER and USER".into(),
                     })?,
-                    _ => {
+                    VarError::NotUnicode(_) => {
                         return Err(ErrorKind::Env {
                             source: err,
                             key: "POSTGRES_USER".into(),
@@ -84,7 +83,7 @@ pub fn read_config_from_env() -> Result<Config, ErrorKind> {
                         source: err,
                         key: "POSTGRES_DB and USER".into(),
                     })?,
-                    _ => {
+                    VarError::NotUnicode(_) => {
                         return Err(ErrorKind::Env {
                             source: err,
                             key: "POSTGRES_DB".into(),

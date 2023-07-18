@@ -14,6 +14,7 @@ use sea_query::{Alias, Expr, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
 use sqlx::{Error, PgConnection};
 
+#[allow(clippy::module_name_repetitions)]
 pub struct UserRepoImpl<Conn> {
     conn: Conn,
 }
@@ -86,6 +87,7 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
     }
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct UserReaderImpl<Conn> {
     conn: Conn,
 }
@@ -101,6 +103,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
     type GetError = Error;
     type GetByIdError = Error;
 
+    #[allow(clippy::redundant_closure_for_method_calls)]
     async fn get_by_id(&mut self, user: GetUserById) -> Result<User, Self::GetError> {
         let (sql, values) = Query::select()
             .columns([
@@ -120,6 +123,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
             .map(|user_model: UserModel| user_model.into())
     }
 
+    #[allow(clippy::redundant_closure_for_method_calls)]
     async fn get_by_tg_id(&mut self, user: GetUserByTgId) -> Result<User, Self::GetByIdError> {
         let (sql, values) = Query::select()
             .columns([

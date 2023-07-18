@@ -2,6 +2,7 @@ use crate::application::user::dto::{CreateUser, UpdateUserLanguageCode, UpdateUs
 
 use async_trait::async_trait;
 
+#[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait UserRepo {
     type CreateError;

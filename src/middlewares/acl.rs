@@ -14,7 +14,7 @@ use crate::{
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use log::error;
+use log::{debug, error};
 use sqlx::{Error, Postgres};
 use std::marker::PhantomData;
 use telers::{
@@ -75,33 +75,34 @@ where
         let Some(result) = context.get("uow") else {
             return Err(MiddlewareError::new(anyhow!("No unit of work found in context")).into());
         };
-        let mut uow = match result.downcast_ref::<Mutex<SqlxUnitOfWork<Postgres>>>() {
-            Some(uow) => uow.lock().await,
-            None => {
-                error!(
-                    target: module_path!(),
-                    "UnitOfWork in context is not a correct UnitOfWork"
-                );
+        let mut uow = if let Some(uow) = result.downcast_ref::<Mutex<SqlxUnitOfWork<Postgres>>>() {
+            uow.lock().await
+        } else {
+            error!(
+                target: module_path!(),
+                "UnitOfWork in context is not a correct UnitOfWork"
+            );
 
-                return Err(MiddlewareError::new(anyhow!(
-                    "UnitOfWork in context is not a correct UnitOfWork"
-                ))
-                .into());
-            }
+            return Err(MiddlewareError::new(anyhow!(
+                "UnitOfWork in context is not a correct UnitOfWork"
+            ))
+            .into());
         };
 
         match UserReaderImpl::new(uow.connection())
             .get_by_tg_id(GetUserByTgId { tg_id: user.id })
             .await
         {
-            Ok(user) => {
-                context.insert("db_user", Box::new(user));
+            Ok(db_user) => {
+                debug!(target: module_path!(), "Successful get user: {db_user:?}");
+
+                context.insert("db_user", Box::new(db_user));
 
                 return Ok((request, EventReturn::Finish));
             }
             Err(err) => {
                 if !matches!(err, Error::RowNotFound) {
-                    error!(target: module_path!(), "Failed to get user by tg id `{tg_id}: {err}", tg_id = user.id);
+                    error!(target: module_path!(), "Failed to get user by tg id `{tg_id}`: {err}", tg_id = user.id);
 
                     return Err(MiddlewareError::new(err).into());
                 }
@@ -121,7 +122,13 @@ where
             .await
         {
             Ok(_) => {
-                let user = UserDto {
+                if let Err(err) = uow.commit().await {
+                    error!(target: module_path!(), "Failed to commit after create user with tg id `{tg_id}`: {err}", tg_id = user.id);
+                } else {
+                    debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
+                }
+
+                let db_user = UserDto {
                     id: create_user.id,
                     tg_id: create_user.tg_id,
                     language_code: create_user.language_code,
@@ -129,7 +136,7 @@ where
                     created: OffsetDateTime::now_utc(),
                 };
 
-                context.insert("db_user", Box::new(user));
+                context.insert("db_user", Box::new(db_user));
 
                 Ok((request, EventReturn::Finish))
             }

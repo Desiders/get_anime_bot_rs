@@ -1,5 +1,6 @@
 use uuid::Uuid;
 
+#[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateUser {
     pub id: Uuid,
