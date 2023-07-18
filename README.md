@@ -1,9 +1,23 @@
-# get_anime_bot_rs
-It's a telegram bot for convenient getting anime GIFs or images by genres 
+<div align="center">
 
-# Migrations
+<h1><code>get_anime_bot_rs</code></h1>
 
-### Docker
+<h3>
+A telegram bot written to easily get anime images and GIF files of different genres
+</h3>
+
+</div>
+
+## Installation
+
+- Install [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- Clone this repository `git clone https://github.com/Desiders/get_anime_bot_rs.git`
+- Copy `.env.example` to `.env` and fill it with your data
+- Run `docker-compose up -d` to start the project
+
+
+## Migrations
+
 To start the migrations, you need to launch the application, uncomment two lines in `docker.compose.yaml` so that you can connect to the database in the docker container:
 ```yaml
 extra_hosts:
