@@ -13,7 +13,7 @@ A telegram bot written to easily get anime images and GIF files of different gen
 - Install [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - Clone this repository `git clone https://github.com/Desiders/get_anime_bot_rs.git`
 - Copy `.env.example` to `.env` and fill it with your data
-- Run `docker-compose up -d` to start the project
+- Run `docker compose up -d` to start the project
 
 
 ## Migrations
