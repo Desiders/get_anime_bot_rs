@@ -16,17 +16,14 @@ $ cargo install sqlx-cli --no-default-features --features rustls,postgres
 Migrations are places in `./src/infrastructure/database/migrations`, so check migrations list and progress:
 ```bash
 $ sqlx migrate info --source ./src/infrastructure/database/migrations --database-url postgres://{user}:{password}@{host}:{port}/{db}
-20230620173320/pending create-tables
 ```
 Try to run a migration with `dry-run` parameter:
 ```bash
 $ sqlx migrate run --source ./src/infrastructure/database/migrations --database-url postgres://{user}:{password}@{host}:{port}/{db} --dry-run
-Can apply 20230620173320/migrate create-tables (0ns)
 ```
 Run a migration:
 ```bash
 $ sqlx migrate run --source ./src/infrastructure/database/migrations --database-url postgres://{user}:{password}@{host}:{port}/{db}
-Applied 20230620173320/migrate create-tables (27.475867ms)
 ```
 Comment out the lines in `docker-compose.yaml` back:
 ```yaml
