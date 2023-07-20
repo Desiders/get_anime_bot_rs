@@ -168,7 +168,6 @@ impl MediaSource for WaifuPics<reqwest::Client> {
             .await?
             .text()
             .await?;
-        println!("content: {content}");
 
         let api_response: ApiResponse = serde_json::from_str(&content)?;
 
