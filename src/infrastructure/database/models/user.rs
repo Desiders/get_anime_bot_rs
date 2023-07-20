@@ -3,7 +3,7 @@ use sqlx::{
     FromRow,
 };
 
-use crate::application::user::dto;
+use crate::domain::user::entities::User as UserEntity;
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 pub struct User {
@@ -14,9 +14,9 @@ pub struct User {
     pub created: OffsetDateTime,
 }
 
-impl From<User> for dto::User {
+impl From<User> for UserEntity {
     fn from(user: User) -> Self {
-        dto::User {
+        UserEntity {
             id: user.id,
             tg_id: user.tg_id,
             language_code: user.language_code,

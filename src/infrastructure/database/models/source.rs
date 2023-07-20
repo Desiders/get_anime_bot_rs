@@ -1,5 +1,5 @@
 use sqlx::{
-    types::{time::Date, Uuid},
+    types::{time::OffsetDateTime, Uuid},
     FromRow,
 };
 
@@ -8,5 +8,5 @@ pub struct Source {
     pub id: Uuid,
     pub name: String,
     pub url: String,
-    pub created: Date,
+    pub created: OffsetDateTime,
 }

@@ -1,5 +1,5 @@
 use sqlx::{
-    types::{time::Date, Uuid},
+    types::{time::OffsetDateTime, Uuid},
     FromRow,
 };
 
@@ -11,5 +11,5 @@ pub struct Media {
     pub media_type: String,
     pub is_sfw: Option<bool>,
     pub source_id: Uuid,
-    pub created: Date,
+    pub created: OffsetDateTime,
 }
