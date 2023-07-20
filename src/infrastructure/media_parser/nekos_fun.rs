@@ -18,7 +18,7 @@ pub struct NekosFun<Client> {
 }
 
 impl<Client> NekosFun<Client> {
-    /// Create a new instance of NekosFun.
+    /// Create a new instance of [`NekosFun`].
     /// # Arguments
     /// * `client` - The client to use for the requests.
     /// # Note
