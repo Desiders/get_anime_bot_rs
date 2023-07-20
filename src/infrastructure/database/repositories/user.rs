@@ -1,11 +1,9 @@
 use crate::{
     application::user::{
-        dto::{
-            CreateUser, GetUserById, GetUserByTgId, UpdateUserLanguageCode, UpdateUserShowNsfw,
-            User,
-        },
+        dto::{CreateUser, GetUserById, GetUserByTgId, UpdateUserLanguageCode, UpdateUserShowNsfw},
         traits::{UserReader, UserRepo},
     },
+    domain::user::entities::User,
     infrastructure::database::models::User as UserModel,
 };
 

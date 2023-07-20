@@ -2,10 +2,11 @@ use crate::{
     application::{
         common::traits::UnitOfWork as _,
         user::{
-            dto::{CreateUser, GetUserByTgId, User as UserDto},
+            dto::{CreateUser, GetUserByTgId},
             traits::{UserReader as _, UserRepo as _},
         },
     },
+    domain::user::entities::User as UserEntity,
     infrastructure::database::{
         repositories::{UserReaderImpl, UserRepoImpl},
         SqlxUnitOfWork,
@@ -128,12 +129,12 @@ where
                     debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
                 }
 
-                let db_user = UserDto {
+                let db_user = UserEntity {
                     id: create_user.id,
                     tg_id: create_user.tg_id,
                     language_code: create_user.language_code,
                     show_nsfw: create_user.show_nsfw,
-                    created: OffsetDateTime::now_utc(),
+                    created: OffsetDateTime::now_utc(), // approximate time
                 };
 
                 context.insert("db_user", Box::new(db_user));

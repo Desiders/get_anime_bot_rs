@@ -1,5 +1,6 @@
 mod application;
 mod config;
+mod domain;
 mod filters;
 mod handlers;
 mod infrastructure;
