@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use std::error::Error as StdError;
 
 #[async_trait]
-pub trait MediaSource {
+pub trait Source {
     type GetMediaError: StdError;
 
     /// Get the genres of the media source

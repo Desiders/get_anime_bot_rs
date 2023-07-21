@@ -3,7 +3,7 @@ use crate::domain::media::value_objects::MediaUrl;
 
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Media {
     url: MediaUrl,
     genre: Genre,

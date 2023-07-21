@@ -1,3 +1,5 @@
-pub mod media_source;
+pub mod source;
+pub mod worker;
 
-pub use media_source::MediaSource;
+pub use source::Source;
+pub use worker::Worker;

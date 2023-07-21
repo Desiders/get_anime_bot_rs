@@ -39,10 +39,10 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
                 Alias::new("show_nsfw"),
             ])
             .values_panic([
-                user.id.into(),
-                user.tg_id.into(),
-                user.language_code.into(),
-                user.show_nsfw.into(),
+                user.id().into(),
+                user.tg_id().into(),
+                user.language_code().into(),
+                user.show_nsfw().into(),
             ])
             .build_sqlx(PostgresQueryBuilder);
 
@@ -58,8 +58,8 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
     ) -> Result<(), Self::UpdateLanguageCodeError> {
         let (sql, values) = Query::update()
             .table(Alias::new("users"))
-            .values([(Alias::new("language_code"), user.language_code.into())])
-            .and_where(Expr::col(Alias::new("id")).eq(user.id))
+            .values([(Alias::new("language_code"), user.language_code().into())])
+            .and_where(Expr::col(Alias::new("id")).eq(user.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
@@ -74,8 +74,8 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
     ) -> Result<(), Self::UpdateShowNsfwError> {
         let (sql, values) = Query::update()
             .table(Alias::new("users"))
-            .values([(Alias::new("show_nsfw"), user.show_nsfw.into())])
-            .and_where(Expr::col(Alias::new("id")).eq(user.id))
+            .values([(Alias::new("show_nsfw"), user.show_nsfw().into())])
+            .and_where(Expr::col(Alias::new("id")).eq(user.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_with(&sql, values)
@@ -112,7 +112,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("users"))
-            .and_where(Expr::col(Alias::new("id")).eq(user.id))
+            .and_where(Expr::col(Alias::new("id")).eq(user.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
@@ -132,7 +132,7 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("users"))
-            .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id))
+            .and_where(Expr::col(Alias::new("tg_id")).eq(user.tg_id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)

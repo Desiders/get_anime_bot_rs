@@ -2,5 +2,15 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GetUserById {
-    pub id: Uuid,
+    id: Uuid,
+}
+
+impl GetUserById {
+    pub fn new(id: Uuid) -> Self {
+        Self { id }
+    }
+
+    pub fn id(&self) -> Uuid {
+        self.id
+    }
 }

@@ -91,7 +91,7 @@ where
         };
 
         match UserReaderImpl::new(uow.connection())
-            .get_by_tg_id(GetUserByTgId { tg_id: user.id })
+            .get_by_tg_id(GetUserByTgId::new(user.id))
             .await
         {
             Ok(db_user) => {
@@ -110,12 +110,7 @@ where
             }
         }
 
-        let create_user = CreateUser {
-            id: Uuid::new_v4(),
-            tg_id: user.id,
-            language_code: None,
-            show_nsfw: None,
-        };
+        let create_user = CreateUser::new(Uuid::new_v4(), user.id, None, None);
 
         // Create user if not exists
         match UserRepoImpl::new(uow.connection())
@@ -130,10 +125,10 @@ where
                 }
 
                 let db_user = UserEntity {
-                    id: create_user.id,
-                    tg_id: create_user.tg_id,
-                    language_code: create_user.language_code,
-                    show_nsfw: create_user.show_nsfw,
+                    id: create_user.id(),
+                    tg_id: create_user.tg_id(),
+                    language_code: create_user.language_code().map(ToOwned::to_owned),
+                    show_nsfw: create_user.show_nsfw(),
                     created: OffsetDateTime::now_utc(), // approximate time
                 };
 

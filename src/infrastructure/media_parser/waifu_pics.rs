@@ -1,5 +1,5 @@
 use crate::{
-    application::media_parser::traits::MediaSource,
+    application::media_parser::traits::Source,
     domain::media::{
         entities::{
             genre::{vec_new_nsfw_gif, vec_new_nsfw_image, vec_new_sfw_gif, vec_new_sfw_image},
@@ -115,7 +115,7 @@ struct ApiResponse {
 }
 
 #[async_trait]
-impl MediaSource for WaifuPics<reqwest::Client> {
+impl Source for WaifuPics<reqwest::Client> {
     type GetMediaError = ErrorKind;
 
     fn genres(&self) -> &Genres {
