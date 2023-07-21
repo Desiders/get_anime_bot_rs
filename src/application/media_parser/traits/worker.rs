@@ -1,5 +1,5 @@
 use super::source::Source;
-use crate::domain::media::entities::Media;
+use crate::domain::media_parser::entities::Media;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc::Receiver;

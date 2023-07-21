@@ -1,4 +1,4 @@
-use crate::domain::media::value_objects::{AgeRestriction, GenreName, MediaType};
+use crate::domain::media_parser::value_objects::{AgeRestriction, GenreName, MediaType};
 
 use serde::Deserialize;
 

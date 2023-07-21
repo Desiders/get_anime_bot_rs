@@ -1,6 +1,6 @@
 use crate::{
     application::media_parser::traits::Source,
-    domain::media::entities::{
+    domain::media_parser::entities::{
         genre::{vec_new_sfw_gif, vec_new_sfw_image},
         Genre, Genres, Media,
     },
@@ -110,8 +110,6 @@ impl Source for NekosBest<reqwest::Client> {
             .await?;
 
         let api_response: ApiResponse = serde_json::from_str(&content)?;
-
-        println!("{:#?}", api_response);
 
         let mut list = Vec::with_capacity(api_response.results.len());
 

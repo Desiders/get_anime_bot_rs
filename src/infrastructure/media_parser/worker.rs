@@ -1,6 +1,6 @@
 use crate::{
     application::media_parser::traits::{Source, Worker},
-    domain::media::entities::Media,
+    domain::media_parser::entities::Media,
     infrastructure::media_parser::{NekosBest, NekosFun, WaifuPics},
 };
 
@@ -13,6 +13,7 @@ use tokio::{
     time as tokio_time,
 };
 
+#[allow(clippy::module_name_repetitions)]
 pub struct WorkerManager {
     name: Cow<'static, str>,
     channel_buffer: usize,

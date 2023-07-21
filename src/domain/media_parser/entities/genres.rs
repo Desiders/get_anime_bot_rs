@@ -1,5 +1,5 @@
 use super::Genre;
-use crate::domain::media::value_objects::{AgeRestriction, MediaType};
+use crate::domain::media_parser::value_objects::{AgeRestriction, MediaType};
 
 use std::ops::Deref;
 

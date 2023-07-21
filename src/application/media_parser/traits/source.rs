@@ -1,4 +1,4 @@
-use crate::domain::media::entities::{Genre, Genres, Media};
+use crate::domain::media_parser::entities::{Genre, Genres, Media};
 
 use async_trait::async_trait;
 use std::error::Error as StdError;

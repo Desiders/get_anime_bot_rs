@@ -1,6 +1,6 @@
 use crate::{
     application::media_parser::traits::Source,
-    domain::media::entities::{
+    domain::media_parser::entities::{
         genre::{vec_new_nsfw_gif, vec_new_nsfw_image, vec_new_sfw_gif, vec_new_sfw_image},
         Genre, Genres, Media,
     },
@@ -91,10 +91,7 @@ impl Source for NekosFun<reqwest::Client> {
         let api_response: ApiResponse = serde_json::from_str(&content)?;
         let media = Media::new(api_response.image, genre.clone());
 
-        let mut list = Vec::with_capacity(1);
-        list.push(media);
-
-        Ok(list)
+        Ok(vec![media])
     }
 }
 

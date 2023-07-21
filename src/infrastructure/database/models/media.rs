@@ -3,6 +3,8 @@ use sqlx::{
     FromRow,
 };
 
+use crate::domain::media::entities::Media as MediaEntity;
+
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
 pub struct Media {
     pub id: Uuid,
@@ -12,4 +14,18 @@ pub struct Media {
     pub is_sfw: Option<bool>,
     pub source_id: Uuid,
     pub created: OffsetDateTime,
+}
+
+impl From<Media> for MediaEntity {
+    fn from(media: Media) -> Self {
+        MediaEntity {
+            id: media.id,
+            url: media.url,
+            genre: media.genre,
+            media_type: media.media_type,
+            is_sfw: media.is_sfw,
+            source_id: media.source_id,
+            created: media.created,
+        }
+    }
 }
