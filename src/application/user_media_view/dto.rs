@@ -1,9 +1,19 @@
 pub mod create;
 pub mod get_by_id;
+pub mod get_by_media_age_restriction;
+pub mod get_by_media_genre;
 pub mod get_by_media_id;
+pub mod get_by_media_source_id;
+pub mod get_by_media_type;
 pub mod get_by_user_id;
+pub mod get_by_user_tg_id;
 
 pub use create::CreateUserMediaView;
 pub use get_by_id::GetUserMediaViewById;
+pub use get_by_media_age_restriction::GetUserMediaViewByMediaAgeRestriction;
+pub use get_by_media_genre::GetUserMediaViewByMediaGenre;
 pub use get_by_media_id::GetUserMediaViewByMediaId;
+pub use get_by_media_source_id::GetUserMediaViewByMediaSourceId;
+pub use get_by_media_type::GetUserMediaViewByMediaType;
 pub use get_by_user_id::GetUserMediaViewByUserId;
+pub use get_by_user_tg_id::GetUserMediaViewByUserTgId;
