@@ -18,7 +18,7 @@ pub struct Media {
 
 impl From<Media> for MediaEntity {
     fn from(media: Media) -> Self {
-        MediaEntity {
+        Self {
             id: media.id,
             url: media.url,
             genre: media.genre,

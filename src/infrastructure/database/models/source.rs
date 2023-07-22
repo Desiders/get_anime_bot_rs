@@ -15,7 +15,7 @@ pub struct Source {
 
 impl From<Source> for SourceEntity {
     fn from(source: Source) -> Self {
-        SourceEntity {
+        Self {
             id: source.id,
             name: source.name,
             url: source.url,

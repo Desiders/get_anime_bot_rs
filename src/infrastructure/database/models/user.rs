@@ -16,7 +16,7 @@ pub struct User {
 
 impl From<User> for UserEntity {
     fn from(user: User) -> Self {
-        UserEntity {
+        Self {
             id: user.id,
             tg_id: user.tg_id,
             language_code: user.language_code,
