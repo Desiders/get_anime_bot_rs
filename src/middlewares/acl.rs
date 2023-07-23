@@ -10,7 +10,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{debug, error};
 use sqlx::PgConnection;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 use telers::{
     error::{EventErrorKind, MiddlewareError},
     event::EventReturn,
@@ -71,7 +71,7 @@ where
         let Some(result) = context.get("uow") else {
             return Err(MiddlewareError::new(anyhow!("No unit of work found in context")).into());
         };
-        let mut uow = if let Some(uow) = result.downcast_ref::<Mutex<UnitOfWorkType>>() {
+        let mut uow = if let Some(uow) = result.downcast_ref::<Arc<Mutex<UnitOfWorkType>>>() {
             uow.lock().await
         } else {
             error!(

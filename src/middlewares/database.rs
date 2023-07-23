@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use sqlx::{Database, Pool, Postgres};
+use std::sync::Arc;
 use telers::{
     error::{EventErrorKind, MiddlewareError},
     event::EventReturn,
@@ -57,7 +58,9 @@ where
 
         let uow = SqlxUnitOfWork::<DB>::new(conn);
 
-        request.context.insert("uow", Box::new(Mutex::new(uow)));
+        request
+            .context
+            .insert("uow", Box::new(Arc::new(Mutex::new(uow))));
 
         Ok((request, EventReturn::Finish))
     }
