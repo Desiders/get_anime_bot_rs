@@ -1,5 +1,5 @@
 use crate::{
-    application::media_parser::traits::Source,
+    application::media_parser::{exceptions::MediaGetException, traits::Source},
     domain::media_parser::{
         entities::{
             genre::{vec_new_nsfw_gif, vec_new_nsfw_image, vec_new_sfw_gif, vec_new_sfw_image},
@@ -93,22 +93,6 @@ impl<Client> WaifuPics<Client> {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum ErrorKind {
-    #[error(transparent)]
-    Serde(#[from] serde_json::Error),
-    #[error(transparent)]
-    Reqwest(#[from] reqwest::Error),
-    #[error("Incorrect genre: {msg}")]
-    IncorrectGenre { msg: Cow<'static, str> },
-}
-
-impl ErrorKind {
-    pub fn incorrect_genre(msg: impl Into<Cow<'static, str>>) -> Self {
-        Self::IncorrectGenre { msg: msg.into() }
-    }
-}
-
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
     files: Vec<String>,
@@ -116,8 +100,6 @@ struct ApiResponse {
 
 #[async_trait]
 impl Source for WaifuPics<reqwest::Client> {
-    type GetMediaError = ErrorKind;
-
     fn genres(&self) -> &Genres {
         lazy_static! {
             static ref GENRES: Genres = Genres::new(
@@ -141,14 +123,15 @@ impl Source for WaifuPics<reqwest::Client> {
     async fn get_media_list_by_genre(
         &self,
         genre: &Genre,
-    ) -> Result<Vec<Media>, Self::GetMediaError> {
+    ) -> Result<Vec<Media>, MediaGetException> {
         let age_restriction = match genre.age_restriction() {
             AgeRestriction::Sfw => "sfw",
             AgeRestriction::Nsfw => "nsfw",
             AgeRestriction::Unknown => {
-                return Err(ErrorKind::incorrect_genre(
-                    "Only SFW/NSFW restrictions are valid",
-                ))
+                return Err(MediaGetException::new(
+                    genre.clone(),
+                    "only SFW/NSFW restrictions are valid",
+                ));
             }
         };
         let url = format!(
@@ -157,7 +140,8 @@ impl Source for WaifuPics<reqwest::Client> {
             genre = genre.name()
         );
 
-        let exclude_urls = serde_json::to_string(&self.exclude_urls)?;
+        let exclude_urls = serde_json::to_string(&self.exclude_urls)
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
         let form = Form::new().text("exclude", exclude_urls);
 
         let content = self
@@ -165,11 +149,14 @@ impl Source for WaifuPics<reqwest::Client> {
             .post(&url)
             .multipart(form)
             .send()
-            .await?
+            .await
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?
             .text()
-            .await?;
+            .await
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
 
-        let api_response: ApiResponse = serde_json::from_str(&content)?;
+        let api_response: ApiResponse = serde_json::from_str(&content)
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
 
         let mut list = Vec::with_capacity(api_response.files.len());
 

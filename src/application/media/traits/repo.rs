@@ -1,11 +1,15 @@
-use crate::application::media::dto::CreateMedia;
+use crate::application::{
+    common::exceptions::RepoKind,
+    media::{dto::CreateMedia, exceptions::MediaUrlAndGenreAlreadyExists},
+};
 
 use async_trait::async_trait;
 
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait MediaRepo {
-    type CreateError;
-
-    async fn create(&mut self, media: CreateMedia) -> Result<(), Self::CreateError>;
+    async fn create(
+        &mut self,
+        media: CreateMedia,
+    ) -> Result<(), RepoKind<MediaUrlAndGenreAlreadyExists>>;
 }

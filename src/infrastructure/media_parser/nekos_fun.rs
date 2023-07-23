@@ -1,5 +1,5 @@
 use crate::{
-    application::media_parser::traits::Source,
+    application::media_parser::{exceptions::MediaGetException, traits::Source},
     domain::media_parser::entities::{
         genre::{vec_new_nsfw_gif, vec_new_nsfw_image, vec_new_sfw_gif, vec_new_sfw_image},
         Genre, Genres, Media,
@@ -56,8 +56,6 @@ struct ApiResponse {
 
 #[async_trait]
 impl Source for NekosFun<reqwest::Client> {
-    type GetMediaError = ErrorKind;
-
     fn genres(&self) -> &Genres {
         lazy_static! {
             static ref GENRES: Genres = Genres::new(
@@ -80,15 +78,24 @@ impl Source for NekosFun<reqwest::Client> {
     async fn get_media_list_by_genre(
         &self,
         genre: &Genre,
-    ) -> Result<Vec<Media>, Self::GetMediaError> {
+    ) -> Result<Vec<Media>, MediaGetException> {
         let url = format!(
             "{api_url}/{genre}",
             api_url = self.url,
             genre = genre.name()
         );
 
-        let content = self.client.get(&url).send().await?.text().await?;
-        let api_response: ApiResponse = serde_json::from_str(&content)?;
+        let content = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?
+            .text()
+            .await
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
+        let api_response: ApiResponse = serde_json::from_str(&content)
+            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
         let media = Media::new(api_response.image, genre.clone());
 
         Ok(vec![media])

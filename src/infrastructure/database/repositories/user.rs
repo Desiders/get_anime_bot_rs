@@ -1,7 +1,13 @@
 use crate::{
-    application::user::{
-        dto::{CreateUser, GetUserById, GetUserByTgId, UpdateUserLanguageCode, UpdateUserShowNsfw},
-        traits::{UserReader, UserRepo},
+    application::{
+        common::exceptions::{RepoError, RepoKind},
+        user::{
+            dto::{
+                CreateUser, GetUserById, GetUserByTgId, UpdateUserLanguageCode, UpdateUserShowNsfw,
+            },
+            exceptions::{UserIdNotExist, UserTgIdAlreadyExists, UserTgIdNotExist},
+            traits::{UserReader, UserRepo},
+        },
     },
     domain::user::entities::User,
     infrastructure::database::models::User as UserModel,
@@ -10,7 +16,7 @@ use crate::{
 use async_trait::async_trait;
 use sea_query::{Alias, Expr, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
-use sqlx::{Error, PgConnection};
+use sqlx::PgConnection;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct UserRepoImpl<Conn> {
@@ -25,11 +31,7 @@ impl<Conn> UserRepoImpl<Conn> {
 
 #[async_trait]
 impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
-    type CreateError = Error;
-    type UpdateLanguageCodeError = Error;
-    type UpdateShowNsfwError = Error;
-
-    async fn create(&mut self, user: CreateUser) -> Result<(), Self::CreateError> {
+    async fn create(&mut self, user: CreateUser) -> Result<(), RepoKind<UserTgIdAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("users"))
             .columns(vec![
@@ -50,12 +52,25 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
             .execute(&mut *self.conn)
             .await
             .map(|_| ())
+            .map_err(|err| {
+                if let sqlx::Error::Database(ref err) = err {
+                    if let Some(code) = err.code() {
+                        if code == "23505" {
+                            return RepoKind::exception(UserTgIdAlreadyExists::new(
+                                user.tg_id(),
+                                err.to_string(),
+                            ));
+                        }
+                    }
+                }
+                RepoKind::unexpected(err)
+            })
     }
 
     async fn update_language_code(
         &mut self,
         user: UpdateUserLanguageCode,
-    ) -> Result<(), Self::UpdateLanguageCodeError> {
+    ) -> Result<(), RepoError> {
         let (sql, values) = Query::update()
             .table(Alias::new("users"))
             .values([(Alias::new("language_code"), user.language_code().into())])
@@ -66,12 +81,10 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
             .execute(&mut *self.conn)
             .await
             .map(|_| ())
+            .map_err(Into::into)
     }
 
-    async fn update_show_nsfw(
-        &mut self,
-        user: UpdateUserShowNsfw,
-    ) -> Result<(), Self::UpdateShowNsfwError> {
+    async fn update_show_nsfw(&mut self, user: UpdateUserShowNsfw) -> Result<(), RepoError> {
         let (sql, values) = Query::update()
             .table(Alias::new("users"))
             .values([(Alias::new("show_nsfw"), user.show_nsfw().into())])
@@ -82,6 +95,7 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
             .execute(&mut *self.conn)
             .await
             .map(|_| ())
+            .map_err(Into::into)
     }
 }
 
@@ -98,11 +112,8 @@ impl<Conn> UserReaderImpl<Conn> {
 
 #[async_trait]
 impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
-    type GetError = Error;
-    type GetByIdError = Error;
-
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_id(&mut self, user: GetUserById) -> Result<User, Self::GetError> {
+    async fn get_by_id(&mut self, user: GetUserById) -> Result<User, RepoKind<UserIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -119,10 +130,19 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
             .fetch_one(&mut *self.conn)
             .await
             .map(|user_model: UserModel| user_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    return RepoKind::exception(UserIdNotExist::new(user.id(), err.to_string()));
+                }
+                RepoKind::unexpected(err)
+            })
     }
 
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_tg_id(&mut self, user: GetUserByTgId) -> Result<User, Self::GetByIdError> {
+    async fn get_by_tg_id(
+        &mut self,
+        user: GetUserByTgId,
+    ) -> Result<User, RepoKind<UserTgIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -139,5 +159,14 @@ impl<'a> UserReader for UserReaderImpl<&'a mut PgConnection> {
             .fetch_one(&mut *self.conn)
             .await
             .map(|user_model: UserModel| user_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    return RepoKind::exception(UserTgIdNotExist::new(
+                        user.tg_id(),
+                        err.to_string(),
+                    ));
+                }
+                RepoKind::unexpected(err)
+            })
     }
 }

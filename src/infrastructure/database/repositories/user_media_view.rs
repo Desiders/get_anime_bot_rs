@@ -1,12 +1,16 @@
 use crate::{
-    application::user_media_view::{
-        dto::{
-            CreateUserMediaView, GetUserMediaViewById, GetUserMediaViewByMediaAgeRestriction,
-            GetUserMediaViewByMediaGenre, GetUserMediaViewByMediaId,
-            GetUserMediaViewByMediaSourceId, GetUserMediaViewByMediaType, GetUserMediaViewByUserId,
-            GetUserMediaViewByUserTgId,
+    application::{
+        common::exceptions::{RepoError, RepoKind},
+        user_media_view::{
+            dto::{
+                CreateUserMediaView, GetUserMediaViewById, GetUserMediaViewByMediaAgeRestriction,
+                GetUserMediaViewByMediaGenre, GetUserMediaViewByMediaId,
+                GetUserMediaViewByMediaSourceId, GetUserMediaViewByMediaType,
+                GetUserMediaViewByUserId, GetUserMediaViewByUserTgId,
+            },
+            exceptions::{UserMediaViewIdNotExist, UserMediaViewUserIdAndMediaIdAlreadyExists},
+            traits::{UserMediaViewReader, UserMediaViewRepo},
         },
-        traits::{UserMediaViewReader, UserMediaViewRepo},
     },
     domain::user_media_view::entities::UserMediaView,
     infrastructure::database::models::UserMediaView as UserMediaViewModel,
@@ -15,7 +19,7 @@ use crate::{
 use async_trait::async_trait;
 use sea_query::{Alias, Expr, JoinType, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
-use sqlx::{Error, PgConnection};
+use sqlx::PgConnection;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct UserMediaViewRepoImpl<Conn> {
@@ -30,12 +34,10 @@ impl<Conn> UserMediaViewRepoImpl<Conn> {
 
 #[async_trait]
 impl<'a> UserMediaViewRepo for UserMediaViewRepoImpl<&'a mut PgConnection> {
-    type CreateError = Error;
-
     async fn create(
         &mut self,
         user_media_view: CreateUserMediaView,
-    ) -> Result<(), Self::CreateError> {
+    ) -> Result<(), RepoKind<UserMediaViewUserIdAndMediaIdAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("user_media_views"))
             .columns(vec![
@@ -54,6 +56,22 @@ impl<'a> UserMediaViewRepo for UserMediaViewRepoImpl<&'a mut PgConnection> {
             .execute(&mut *self.conn)
             .await
             .map(|_| ())
+            .map_err(|err| {
+                if let sqlx::Error::Database(ref err) = err {
+                    if let Some(code) = err.code() {
+                        if code == "23505" {
+                            return RepoKind::exception(
+                                UserMediaViewUserIdAndMediaIdAlreadyExists::new(
+                                    user_media_view.user_id(),
+                                    user_media_view.media_id(),
+                                    err.to_string(),
+                                ),
+                            );
+                        }
+                    }
+                }
+                RepoKind::unexpected(err)
+            })
     }
 }
 
@@ -70,16 +88,11 @@ impl<Conn> UserMediaViewReaderImpl<Conn> {
 
 #[async_trait]
 impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
-    type GetError = Error;
-    type GetByIdError = Error;
-    type GetByUserIdError = Error;
-    type GetByMediaIdError = Error;
-
     #[allow(clippy::redundant_closure_for_method_calls)]
     async fn get_by_id(
         &mut self,
-        user: GetUserMediaViewById,
-    ) -> Result<UserMediaView, Self::GetError> {
+        user_media_view: GetUserMediaViewById,
+    ) -> Result<UserMediaView, RepoKind<UserMediaViewIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -88,19 +101,29 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("user_media_views"))
-            .and_where(Expr::col(Alias::new("id")).eq(user.id()))
+            .and_where(Expr::col(Alias::new("id")).eq(user_media_view.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
             .fetch_one(&mut *self.conn)
             .await
             .map(|user_media_view_model: UserMediaViewModel| user_media_view_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    RepoKind::exception(UserMediaViewIdNotExist::new(
+                        user_media_view.id(),
+                        err.to_string(),
+                    ))
+                } else {
+                    RepoKind::unexpected(err)
+                }
+            })
     }
 
     async fn get_by_user_id(
         &mut self,
         user_media_view: GetUserMediaViewByUserId,
-    ) -> Result<Vec<UserMediaView>, Self::GetByUserIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -118,12 +141,13 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 
     async fn get_by_media_id(
         &mut self,
         user_media_view: GetUserMediaViewByMediaId,
-    ) -> Result<Vec<UserMediaView>, Self::GetByMediaIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -141,12 +165,13 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 
     async fn get_by_user_tg_id(
         &mut self,
         user_media_view: GetUserMediaViewByUserTgId,
-    ) -> Result<Vec<UserMediaView>, Self::GetByUserIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 (Alias::new("user_media_views"), Alias::new("id")),
@@ -173,12 +198,13 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 
     async fn get_by_media_genre(
         &mut self,
         user_media_view: GetUserMediaViewByMediaGenre,
-    ) -> Result<Vec<UserMediaView>, Self::GetByMediaIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 (Alias::new("user_media_views"), Alias::new("id")),
@@ -204,12 +230,13 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 
     async fn get_by_media_type(
         &mut self,
         user_media_view: GetUserMediaViewByMediaType,
-    ) -> Result<Vec<UserMediaView>, Self::GetByMediaIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 (Alias::new("user_media_views"), Alias::new("id")),
@@ -236,12 +263,13 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 
     async fn get_by_media_age_restriction(
         &mut self,
         user_media_view: GetUserMediaViewByMediaAgeRestriction,
-    ) -> Result<Vec<UserMediaView>, Self::GetByMediaIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 (Alias::new("user_media_views"), Alias::new("id")),
@@ -267,12 +295,13 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 
     async fn get_by_media_source_id(
         &mut self,
         user_media_view: GetUserMediaViewByMediaSourceId,
-    ) -> Result<Vec<UserMediaView>, Self::GetByMediaIdError> {
+    ) -> Result<Vec<UserMediaView>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 (Alias::new("user_media_views"), Alias::new("id")),
@@ -299,5 +328,6 @@ impl<'a> UserMediaViewReader for UserMediaViewReaderImpl<&'a mut PgConnection> {
             .map(|user_media_view_models: Vec<UserMediaViewModel>| {
                 user_media_view_models.into_iter().map(Into::into).collect()
             })
+            .map_err(Into::into)
     }
 }

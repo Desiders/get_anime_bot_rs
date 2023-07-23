@@ -1,7 +1,11 @@
 use crate::{
-    application::media::{
-        dto::{CreateMedia, GetMediaById, GetMediaByUrl},
-        traits::{MediaReader, MediaRepo},
+    application::{
+        common::exceptions::{RepoError, RepoKind},
+        media::{
+            dto::{CreateMedia, GetMediaById, GetMediaByUrl},
+            exceptions::{MediaIdNotExist, MediaUrlAndGenreAlreadyExists},
+            traits::{MediaReader, MediaRepo},
+        },
     },
     domain::media::entities::Media,
     infrastructure::database::models::Media as MediaModel,
@@ -10,7 +14,7 @@ use crate::{
 use async_trait::async_trait;
 use sea_query::{Alias, Expr, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
-use sqlx::{Error, PgConnection};
+use sqlx::PgConnection;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct MediaRepoImpl<Conn> {
@@ -25,9 +29,10 @@ impl<Conn> MediaRepoImpl<Conn> {
 
 #[async_trait]
 impl<'a> MediaRepo for MediaRepoImpl<&'a mut PgConnection> {
-    type CreateError = Error;
-
-    async fn create(&mut self, media: CreateMedia) -> Result<(), Self::CreateError> {
+    async fn create(
+        &mut self,
+        media: CreateMedia,
+    ) -> Result<(), RepoKind<MediaUrlAndGenreAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("media"))
             .columns(vec![
@@ -52,6 +57,20 @@ impl<'a> MediaRepo for MediaRepoImpl<&'a mut PgConnection> {
             .execute(&mut *self.conn)
             .await
             .map(|_| ())
+            .map_err(|err| {
+                if let sqlx::Error::Database(ref err) = err {
+                    if let Some(code) = err.code() {
+                        if code == "23505" {
+                            return RepoKind::exception(MediaUrlAndGenreAlreadyExists::new(
+                                media.url().to_string(),
+                                media.genre().map(ToOwned::to_owned),
+                                err.to_string(),
+                            ));
+                        }
+                    }
+                }
+                RepoKind::unexpected(err)
+            })
     }
 }
 
@@ -68,11 +87,8 @@ impl<Conn> MediaReaderImpl<Conn> {
 
 #[async_trait]
 impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
-    type GetError = Error;
-    type GetByIdError = Error;
-
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_id(&mut self, user: GetMediaById) -> Result<Media, Self::GetError> {
+    async fn get_by_id(&mut self, media: GetMediaById) -> Result<Media, RepoKind<MediaIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -84,17 +100,23 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("media"))
-            .and_where(Expr::col(Alias::new("id")).eq(user.id()))
+            .and_where(Expr::col(Alias::new("id")).eq(media.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
             .fetch_one(&mut *self.conn)
             .await
             .map(|media_model: MediaModel| media_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    RepoKind::exception(MediaIdNotExist::new(media.id(), err.to_string()))
+                } else {
+                    RepoKind::unexpected(err)
+                }
+            })
     }
 
-    #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Media, Self::GetByIdError> {
+    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<Media>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -110,8 +132,9 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
-            .fetch_one(&mut *self.conn)
+            .fetch_all(&mut *self.conn)
             .await
-            .map(|media_model: MediaModel| media_model.into())
+            .map(|media_models: Vec<MediaModel>| media_models.into_iter().map(Into::into).collect())
+            .map_err(Into::into)
     }
 }

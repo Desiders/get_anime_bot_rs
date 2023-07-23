@@ -1,7 +1,11 @@
 use crate::{
-    application::source::{
-        dto::{CreateSource, GetSourceById, GetSourceByName},
-        traits::{SourceReader, SourceRepo},
+    application::{
+        common::exceptions::{RepoError, RepoKind},
+        source::{
+            dto::{CreateSource, GetSourceById, GetSourceByName},
+            exceptions::{SourceIdNotExist, SourceNameAndUrlAlreadyExists},
+            traits::{SourceReader, SourceRepo},
+        },
     },
     domain::source::entities::Source,
     infrastructure::database::models::Source as SourceModel,
@@ -10,7 +14,7 @@ use crate::{
 use async_trait::async_trait;
 use sea_query::{Alias, Expr, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
-use sqlx::{Error, PgConnection};
+use sqlx::PgConnection;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct SourceRepoImpl<Conn> {
@@ -25,9 +29,10 @@ impl<Conn> SourceRepoImpl<Conn> {
 
 #[async_trait]
 impl<'a> SourceRepo for SourceRepoImpl<&'a mut PgConnection> {
-    type CreateError = Error;
-
-    async fn create(&mut self, source: CreateSource) -> Result<(), Self::CreateError> {
+    async fn create(
+        &mut self,
+        source: CreateSource,
+    ) -> Result<(), RepoKind<SourceNameAndUrlAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("sources"))
             .columns(vec![
@@ -46,6 +51,20 @@ impl<'a> SourceRepo for SourceRepoImpl<&'a mut PgConnection> {
             .execute(&mut *self.conn)
             .await
             .map(|_| ())
+            .map_err(|err| {
+                if let sqlx::Error::Database(ref err) = err {
+                    if let Some(code) = err.code() {
+                        if code == "23505" {
+                            return RepoKind::exception(SourceNameAndUrlAlreadyExists::new(
+                                source.name().to_string(),
+                                source.url().to_string(),
+                                err.to_string(),
+                            ));
+                        }
+                    }
+                }
+                RepoKind::unexpected(err)
+            })
     }
 }
 
@@ -62,12 +81,11 @@ impl<Conn> SourceReaderImpl<Conn> {
 
 #[async_trait]
 impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
-    type GetError = Error;
-    type GetByIdError = Error;
-    type GetByNameError = Error;
-
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_id(&mut self, user: GetSourceById) -> Result<Source, Self::GetError> {
+    async fn get_by_id(
+        &mut self,
+        source: GetSourceById,
+    ) -> Result<Source, RepoKind<SourceIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -76,20 +94,23 @@ impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("sources"))
-            .and_where(Expr::col(Alias::new("id")).eq(user.id()))
+            .and_where(Expr::col(Alias::new("id")).eq(source.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
             .fetch_one(&mut *self.conn)
             .await
             .map(|source_model: SourceModel| source_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    RepoKind::exception(SourceIdNotExist::new(source.id(), err.to_string()))
+                } else {
+                    RepoKind::unexpected(err)
+                }
+            })
     }
 
-    #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_name(
-        &mut self,
-        source: GetSourceByName,
-    ) -> Result<Source, Self::GetByNameError> {
+    async fn get_by_name(&mut self, source: GetSourceByName) -> Result<Vec<Source>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -102,8 +123,11 @@ impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
-            .fetch_one(&mut *self.conn)
+            .fetch_all(&mut *self.conn)
             .await
-            .map(|source_model: SourceModel| source_model.into())
+            .map(|source_models: Vec<SourceModel>| {
+                source_models.into_iter().map(Into::into).collect()
+            })
+            .map_err(Into::into)
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     application::{
-        common::traits::UnitOfWork as _,
+        common::{exceptions::RepoKind, traits::UnitOfWork as _},
         user::{
             dto::{CreateUser, GetUserByTgId},
             traits::{UserReader as _, UserRepo as _},
@@ -16,7 +16,7 @@ use crate::{
 use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{debug, error};
-use sqlx::{Error, Postgres};
+use sqlx::Postgres;
 use std::marker::PhantomData;
 use telers::{
     error::{EventErrorKind, MiddlewareError},
@@ -101,12 +101,13 @@ where
 
                 return Ok((request, EventReturn::Finish));
             }
-            Err(err) => {
-                if !matches!(err, Error::RowNotFound) {
-                    error!(target: module_path!(), "Failed to get user by tg id `{tg_id}`: {err}", tg_id = user.id);
+            Err(RepoKind::Exception(_)) => {
+                debug!(target: module_path!(), "User with tg id `{tg_id}` not found", tg_id = user.id);
+            }
+            Err(RepoKind::Unexpected(err)) => {
+                error!(target: module_path!(), "Failed to get user by tg id `{tg_id}`: {err}", tg_id = user.id);
 
-                    return Err(MiddlewareError::new(err).into());
-                }
+                return Err(MiddlewareError::new(err).into());
             }
         }
 

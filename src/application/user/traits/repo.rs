@@ -1,23 +1,20 @@
-use crate::application::user::dto::{CreateUser, UpdateUserLanguageCode, UpdateUserShowNsfw};
+use crate::application::{
+    common::exceptions::{RepoError, RepoKind},
+    user::{
+        dto::{CreateUser, UpdateUserLanguageCode, UpdateUserShowNsfw},
+        exceptions::UserTgIdAlreadyExists,
+    },
+};
 
 use async_trait::async_trait;
 
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait UserRepo {
-    type CreateError;
-    type UpdateLanguageCodeError;
-    type UpdateShowNsfwError;
+    async fn create(&mut self, user: CreateUser) -> Result<(), RepoKind<UserTgIdAlreadyExists>>;
 
-    async fn create(&mut self, user: CreateUser) -> Result<(), Self::CreateError>;
+    async fn update_language_code(&mut self, user: UpdateUserLanguageCode)
+        -> Result<(), RepoError>;
 
-    async fn update_language_code(
-        &mut self,
-        user: UpdateUserLanguageCode,
-    ) -> Result<(), Self::UpdateLanguageCodeError>;
-
-    async fn update_show_nsfw(
-        &mut self,
-        user: UpdateUserShowNsfw,
-    ) -> Result<(), Self::UpdateShowNsfwError>;
+    async fn update_show_nsfw(&mut self, user: UpdateUserShowNsfw) -> Result<(), RepoError>;
 }
