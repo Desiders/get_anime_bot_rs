@@ -47,7 +47,7 @@ where
         request: Request<Client>,
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
         let conn = match self.pool.acquire().await {
-            Ok(pool_connection) => pool_connection.detach(),
+            Ok(pool_connection) => pool_connection,
             Err(err) => {
                 log::error!("Failed to acquire a connection from the pool: {err}");
 

@@ -1,22 +1,15 @@
 use crate::{
     application::{
-        common::{exceptions::RepoKind, traits::UnitOfWork as _},
-        user::{
-            dto::{CreateUser, GetUserByTgId},
-            traits::{UserReader as _, UserRepo as _},
-        },
+        common::{exceptions::RepoKind, traits::UnitOfWork},
+        user::dto::{CreateUser, GetUserByTgId},
     },
     domain::user::entities::User as UserEntity,
-    infrastructure::database::{
-        repositories::{UserReaderImpl, UserRepoImpl},
-        SqlxUnitOfWork,
-    },
 };
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use log::{debug, error};
-use sqlx::Postgres;
+use sqlx::PgConnection;
 use std::marker::PhantomData;
 use telers::{
     error::{EventErrorKind, MiddlewareError},
@@ -29,11 +22,11 @@ use time::{self, OffsetDateTime};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-pub struct ACLMiddleware<DB> {
-    _phantom: PhantomData<DB>,
+pub struct ACLMiddleware<UnitOfWorkType> {
+    _phantom: PhantomData<UnitOfWorkType>,
 }
 
-impl<DB> ACLMiddleware<DB> {
+impl<UnitOfWorkType> ACLMiddleware<UnitOfWorkType> {
     pub const fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -41,17 +34,19 @@ impl<DB> ACLMiddleware<DB> {
     }
 }
 
-impl Clone for ACLMiddleware<Postgres> {
+impl<UnitOfWorkType> Clone for ACLMiddleware<UnitOfWorkType> {
     fn clone(&self) -> Self {
         Self::new()
     }
 }
 
-impl Copy for ACLMiddleware<Postgres> {}
+impl<UnitOfWorkType> Copy for ACLMiddleware<UnitOfWorkType> {}
 
 #[async_trait]
-impl<Client> Middleware<Client> for ACLMiddleware<Postgres>
+impl<UnitOfWorkType, Client> Middleware<Client> for ACLMiddleware<UnitOfWorkType>
 where
+    for<'a> UnitOfWorkType:
+        UnitOfWork<Connection<'a> = &'a mut PgConnection> + Send + Sync + 'static,
     Client: Send + Sync + 'static,
 {
     async fn call(
@@ -76,7 +71,7 @@ where
         let Some(result) = context.get("uow") else {
             return Err(MiddlewareError::new(anyhow!("No unit of work found in context")).into());
         };
-        let mut uow = if let Some(uow) = result.downcast_ref::<Mutex<SqlxUnitOfWork<Postgres>>>() {
+        let mut uow = if let Some(uow) = result.downcast_ref::<Mutex<UnitOfWorkType>>() {
             uow.lock().await
         } else {
             error!(
@@ -90,7 +85,8 @@ where
             .into());
         };
 
-        match UserReaderImpl::new(uow.connection())
+        match uow
+            .user_reader()
             .get_by_tg_id(GetUserByTgId::new(user.id))
             .await
         {
@@ -114,30 +110,26 @@ where
         let create_user = CreateUser::new(Uuid::new_v4(), user.id, None, None);
 
         // Create user if not exists
-        match UserRepoImpl::new(uow.connection())
-            .create(create_user.clone())
-            .await
-        {
-            Ok(_) => {
-                if let Err(err) = uow.commit().await {
-                    error!(target: module_path!(), "Failed to commit after create user with tg id `{tg_id}`: {err}", tg_id = user.id);
-                } else {
-                    debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
-                }
+        if let Err(err) = uow.user_repo().create(create_user.clone()).await {
+            return Err(MiddlewareError::new(err).into());
+        };
 
-                let db_user = UserEntity {
-                    id: create_user.id(),
-                    tg_id: create_user.tg_id(),
-                    language_code: create_user.language_code().map(ToOwned::to_owned),
-                    show_nsfw: create_user.show_nsfw(),
-                    created: OffsetDateTime::now_utc(), // approximate time
-                };
-
-                context.insert("db_user", Box::new(db_user));
-
-                Ok((request, EventReturn::Finish))
-            }
-            Err(err) => Err(MiddlewareError::new(err).into()),
+        if let Err(err) = uow.commit().await {
+            error!(target: module_path!(), "Failed to commit after create user with tg id `{tg_id}`: {err}", tg_id = user.id);
+        } else {
+            debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
         }
+
+        let db_user = UserEntity {
+            id: create_user.id(),
+            tg_id: create_user.tg_id(),
+            language_code: create_user.language_code().map(ToOwned::to_owned),
+            show_nsfw: create_user.show_nsfw(),
+            created: OffsetDateTime::now_utc(), // approximate time
+        };
+
+        context.insert("db_user", Box::new(db_user));
+
+        Ok((request, EventReturn::Finish))
     }
 }

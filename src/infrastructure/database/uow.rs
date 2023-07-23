@@ -1,10 +1,20 @@
-use crate::application::common::{
-    exceptions::{BeginError, CommitError, RollbackError},
-    traits::UnitOfWork,
+use super::repositories::{
+    MediaReaderImpl, MediaRepoImpl, SourceReaderImpl, SourceRepoImpl, UserMediaViewReaderImpl,
+    UserMediaViewRepoImpl, UserReaderImpl, UserRepoImpl,
+};
+use crate::application::{
+    common::{
+        exceptions::{BeginError, CommitError, RollbackError},
+        traits::UnitOfWork,
+    },
+    media::traits::{MediaReader, MediaRepo},
+    source::traits::{SourceReader, SourceRepo},
+    user::traits::{UserReader, UserRepo},
+    user_media_view::traits::{UserMediaViewReader, UserMediaViewRepo},
 };
 
 use async_trait::async_trait;
-use sqlx::{Connection, Database, Transaction};
+use sqlx::{pool::PoolConnection, Connection, Database, Transaction};
 
 impl From<sqlx::Error> for BeginError {
     fn from(error: sqlx::Error) -> Self {
@@ -28,7 +38,7 @@ pub struct SqlxUnitOfWork<DB>
 where
     DB: Database,
 {
-    conn: DB::Connection,
+    conn: PoolConnection<DB>,
     transaction: Option<Transaction<'static, DB>>,
 }
 
@@ -36,7 +46,7 @@ impl<DB> SqlxUnitOfWork<DB>
 where
     DB: Database,
 {
-    pub fn new(conn: DB::Connection) -> Self {
+    pub fn new(conn: PoolConnection<DB>) -> Self {
         Self {
             conn,
             transaction: None,
@@ -48,6 +58,14 @@ where
 impl<DB> UnitOfWork for SqlxUnitOfWork<DB>
 where
     DB: Database,
+    for<'a> UserRepoImpl<&'a mut DB::Connection>: UserRepo,
+    for<'a> UserReaderImpl<&'a mut DB::Connection>: UserReader,
+    for<'a> SourceRepoImpl<&'a mut DB::Connection>: SourceRepo,
+    for<'a> SourceReaderImpl<&'a mut DB::Connection>: SourceReader,
+    for<'a> MediaRepoImpl<&'a mut DB::Connection>: MediaRepo,
+    for<'a> MediaReaderImpl<&'a mut DB::Connection>: MediaReader,
+    for<'a> UserMediaViewRepoImpl<&'a mut DB::Connection>: UserMediaViewRepo,
+    for<'a> UserMediaViewReaderImpl<&'a mut DB::Connection>: UserMediaViewReader,
 {
     type Connection<'a> = &'a mut DB::Connection where Self: 'a;
 
@@ -75,5 +93,37 @@ where
         } else {
             Ok(())
         }
+    }
+
+    fn user_repo(&mut self) -> Box<dyn UserRepo + Send + '_> {
+        Box::new(UserRepoImpl::new(self.connection()))
+    }
+
+    fn user_reader(&mut self) -> Box<dyn UserReader + Send + '_> {
+        Box::new(UserReaderImpl::new(self.connection()))
+    }
+
+    fn source_repo(&mut self) -> Box<dyn SourceRepo + Send + '_> {
+        Box::new(SourceRepoImpl::new(self.connection()))
+    }
+
+    fn source_reader(&mut self) -> Box<dyn SourceReader + Send + '_> {
+        Box::new(SourceReaderImpl::new(self.connection()))
+    }
+
+    fn media_repo(&mut self) -> Box<dyn MediaRepo + Send + '_> {
+        Box::new(MediaRepoImpl::new(self.connection()))
+    }
+
+    fn media_reader(&mut self) -> Box<dyn MediaReader + Send + '_> {
+        Box::new(MediaReaderImpl::new(self.connection()))
+    }
+
+    fn user_media_view_repo(&mut self) -> Box<dyn UserMediaViewRepo + Send + '_> {
+        Box::new(UserMediaViewRepoImpl::new(self.connection()))
+    }
+
+    fn user_media_view_reader(&mut self) -> Box<dyn UserMediaViewReader + Send + '_> {
+        Box::new(UserMediaViewReaderImpl::new(self.connection()))
     }
 }

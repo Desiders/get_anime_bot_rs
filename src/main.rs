@@ -8,6 +8,7 @@ mod middlewares;
 
 use config::read_config_from_env;
 use handlers::{source as source_handler, start as start_handler};
+use infrastructure::database::SqlxUnitOfWork;
 use middlewares::{ACLMiddleware, DatabaseMiddleware};
 use sqlx::{PgPool, Postgres};
 use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
@@ -53,7 +54,7 @@ async fn main() {
     };
 
     let database_middleware = DatabaseMiddleware::new(pool);
-    let acl_middleware = ACLMiddleware::<Postgres>::new();
+    let acl_middleware = ACLMiddleware::<SqlxUnitOfWork<Postgres>>::new();
 
     let bot = Bot::new(config.bot.token);
 
