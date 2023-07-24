@@ -22,11 +22,11 @@ use time::{self, OffsetDateTime};
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-pub struct ACLMiddleware<UnitOfWorkType> {
+pub struct Acl<UnitOfWorkType> {
     _phantom: PhantomData<UnitOfWorkType>,
 }
 
-impl<UnitOfWorkType> ACLMiddleware<UnitOfWorkType> {
+impl<UnitOfWorkType> Acl<UnitOfWorkType> {
     pub const fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -34,16 +34,16 @@ impl<UnitOfWorkType> ACLMiddleware<UnitOfWorkType> {
     }
 }
 
-impl<UnitOfWorkType> Clone for ACLMiddleware<UnitOfWorkType> {
+impl<UnitOfWorkType> Clone for Acl<UnitOfWorkType> {
     fn clone(&self) -> Self {
         Self::new()
     }
 }
 
-impl<UnitOfWorkType> Copy for ACLMiddleware<UnitOfWorkType> {}
+impl<UnitOfWorkType> Copy for Acl<UnitOfWorkType> {}
 
 #[async_trait]
-impl<UnitOfWorkType, Client> Middleware<Client> for ACLMiddleware<UnitOfWorkType>
+impl<UnitOfWorkType, Client> Middleware<Client> for Acl<UnitOfWorkType>
 where
     for<'a> UnitOfWorkType:
         UnitOfWork<Connection<'a> = &'a mut PgConnection> + Send + Sync + 'static,

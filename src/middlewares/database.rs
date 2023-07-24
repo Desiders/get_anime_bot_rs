@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use sqlx::{Database, Pool, Postgres};
+use sqlx::{Pool, Postgres};
 use std::sync::Arc;
 use telers::{
     error::{EventErrorKind, MiddlewareError},
@@ -12,24 +12,23 @@ use tokio::sync::Mutex;
 use crate::infrastructure::database::SqlxUnitOfWork;
 
 #[allow(clippy::module_name_repetitions)]
-#[derive(Debug)]
-pub struct DatabaseMiddleware<DB>
+pub struct Database<DB>
 where
-    DB: Database,
+    DB: sqlx::Database,
 {
     pool: Pool<DB>,
 }
 
-impl<DB> DatabaseMiddleware<DB>
+impl<DB> Database<DB>
 where
-    DB: Database,
+    DB: sqlx::Database,
 {
     pub fn new(pool: Pool<DB>) -> Self {
         Self { pool }
     }
 }
 
-impl Clone for DatabaseMiddleware<Postgres> {
+impl Clone for Database<Postgres> {
     fn clone(&self) -> Self {
         Self {
             pool: self.pool.clone(),
@@ -38,9 +37,9 @@ impl Clone for DatabaseMiddleware<Postgres> {
 }
 
 #[async_trait]
-impl<DB, Client> Middleware<Client> for DatabaseMiddleware<DB>
+impl<DB, Client> Middleware<Client> for Database<DB>
 where
-    DB: Database,
+    DB: sqlx::Database,
     Client: Send + Sync + 'static,
 {
     async fn call(
