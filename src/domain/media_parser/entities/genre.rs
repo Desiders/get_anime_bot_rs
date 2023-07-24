@@ -1,6 +1,13 @@
-use crate::domain::media_parser::value_objects::{AgeRestriction, GenreName, MediaType};
+use crate::domain::media_parser::{
+    exceptions::MediaParse as MediaParseError,
+    value_objects::{AgeRestriction, GenreName, MediaType},
+};
 
 use serde::Deserialize;
+use std::{
+    borrow::Cow,
+    fmt::{self, Display, Formatter},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Genre {
@@ -158,5 +165,42 @@ impl Genre {
     /// Returns `true` if the media type is [`MediaType::Unknown`]
     pub const fn media_type_is_unknown(&self) -> bool {
         self.media_type.is_unknown()
+    }
+}
+
+impl Display for Genre {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{name}_{media_type}_{age_restriction}",
+            name = self.name(),
+            media_type = self.media_type(),
+            age_restriction = self.age_restriction()
+        )
+    }
+}
+
+impl<'a> TryFrom<&'a str> for Genre {
+    type Error = MediaParseError<'a>;
+
+    fn try_from(raw_genre: &'a str) -> Result<Self, Self::Error> {
+        let mut parts = raw_genre.split('_');
+
+        let name: GenreName = match parts.next() {
+            Some(name) => Cow::Owned(name.to_owned()),
+            None => return Err(MediaParseError::NoNameProvided),
+        };
+
+        let media_type: MediaType = match parts.next() {
+            Some(media_type) => media_type.try_into()?,
+            None => return Err(MediaParseError::NoNameProvided),
+        };
+
+        let age_restriction: AgeRestriction = match parts.next() {
+            Some(age_restriction) => age_restriction.try_into()?,
+            None => return Err(MediaParseError::NoMediaTypeProvided),
+        };
+
+        Ok(Self::new(name, media_type, age_restriction))
     }
 }
