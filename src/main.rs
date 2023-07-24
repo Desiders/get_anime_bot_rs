@@ -8,9 +8,17 @@ mod infrastructure;
 mod middlewares;
 
 use config::read_config_from_env;
-use handlers::{source as source_handler, start as start_handler};
-use infrastructure::database::SqlxUnitOfWork;
-use middlewares::{ACLMiddleware, DatabaseMiddleware};
+use handlers::{
+    sfw_genres as sfw_genres_handler, source as source_handler, start as start_handler,
+};
+use infrastructure::{
+    database::SqlxUnitOfWork,
+    media_parser::{NekosBest, NekosFun, WaifuPics},
+};
+use middlewares::{
+    Acl as ACLMiddleware, Database as DatabaseMiddleware,
+    MediaParserSources as MediaParserSourcesMiddleware,
+};
 use sqlx::{PgPool, Postgres};
 use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
 
@@ -54,12 +62,11 @@ async fn main() {
         }
     };
 
+    let mut main_router = Router::new("main");
+
     let database_middleware = DatabaseMiddleware::new(pool);
     let acl_middleware = ACLMiddleware::<SqlxUnitOfWork<Postgres>>::new();
 
-    let bot = Bot::new(config.bot.token);
-
-    let mut main_router = Router::new("main");
     main_router
         .telegram_observers_mut()
         .iter_mut()
@@ -69,6 +76,20 @@ async fn main() {
                 .register(database_middleware.clone());
             observer.outer_middlewares.register(acl_middleware);
         });
+
+    let nekos_best = NekosBest::default();
+    let nekos_fun = NekosFun::default();
+    let waifu_pics = WaifuPics::default();
+
+    let media_parser_sources_middleware = MediaParserSourcesMiddleware::default()
+        .source(nekos_best)
+        .source(nekos_fun)
+        .source(waifu_pics);
+
+    main_router
+        .message
+        .inner_middlewares
+        .register(media_parser_sources_middleware);
 
     let mut user_router = Router::new("users");
 
@@ -80,8 +101,14 @@ async fn main() {
         .message
         .register(source_handler)
         .filter(Command::many(["source", "about"]));
+    user_router
+        .message
+        .register(sfw_genres_handler)
+        .filter(Command::one("sfw_genres"));
 
     main_router.include(user_router);
+
+    let bot = Bot::new(config.bot.token);
 
     let dispatcher = Dispatcher::builder().bot(bot).router(main_router).build();
 
