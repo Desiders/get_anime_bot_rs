@@ -4,9 +4,10 @@ use crate::{
 };
 
 use async_trait::async_trait;
+use std::sync::Arc;
 
 #[async_trait]
-pub trait Source {
+pub trait Source: Send + Sync {
     /// Get the genres of the media source
     fn genres(&self) -> &Genres;
 
@@ -17,4 +18,21 @@ pub trait Source {
     /// [`Vec<Media>`] if the request was successful, [`MediaSource::GetMediaError`] otherwise
     async fn get_media_list_by_genre(&self, genre: &Genre)
         -> Result<Vec<Media>, MediaGetException>;
+}
+
+#[async_trait]
+impl<S> Source for Arc<S>
+where
+    S: Source + ?Sized,
+{
+    fn genres(&self) -> &Genres {
+        (**self).genres()
+    }
+
+    async fn get_media_list_by_genre(
+        &self,
+        genre: &Genre,
+    ) -> Result<Vec<Media>, MediaGetException> {
+        (**self).get_media_list_by_genre(genre).await
+    }
 }
