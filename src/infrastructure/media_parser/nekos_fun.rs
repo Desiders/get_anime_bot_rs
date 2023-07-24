@@ -12,7 +12,7 @@ use serde::Deserialize;
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
-pub struct NekosFun<Client> {
+pub struct NekosFun<Client = reqwest::Client> {
     url: Cow<'static, str>,
     client: Client,
 }
@@ -38,6 +38,12 @@ impl<Client> NekosFun<Client> {
             client: self.client,
             url: url.into(),
         }
+    }
+}
+
+impl Default for NekosFun {
+    fn default() -> Self {
+        Self::new(reqwest::Client::default())
     }
 }
 

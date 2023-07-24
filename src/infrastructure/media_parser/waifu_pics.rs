@@ -17,7 +17,7 @@ use serde::Deserialize;
 use std::borrow::Cow;
 
 #[derive(Debug, Clone)]
-pub struct WaifuPics<Client> {
+pub struct WaifuPics<Client = reqwest::Client> {
     url: Cow<'static, str>,
     exclude_urls: Vec<Cow<'static, str>>,
     client: Client,
@@ -90,6 +90,12 @@ impl<Client> WaifuPics<Client> {
         I: IntoIterator<Item = T>,
     {
         self.exclude_urls = exclude_urls.into_iter().map(Into::into).collect();
+    }
+}
+
+impl Default for WaifuPics {
+    fn default() -> Self {
+        Self::new(reqwest::Client::default())
     }
 }
 
