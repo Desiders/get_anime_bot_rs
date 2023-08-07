@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sqlx::{Pool, Postgres};
 use std::sync::Arc;
 use telers::{
-    error::{EventErrorKind, MiddlewareError},
+    errors::{EventErrorKind, MiddlewareError},
     event::EventReturn,
     middlewares::outer::{Middleware, MiddlewareResponse},
     router::Request,

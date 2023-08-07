@@ -3,7 +3,7 @@ use crate::application::media_parser::traits::Source;
 use async_trait::async_trait;
 use std::sync::Arc;
 use telers::{
-    error::EventErrorKind,
+    errors::EventErrorKind,
     event::telegram::{HandlerRequest, HandlerResponse},
     middlewares::{InnerMiddleware, Next},
 };

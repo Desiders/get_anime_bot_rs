@@ -12,7 +12,7 @@ use log::{debug, error};
 use sqlx::PgConnection;
 use std::{marker::PhantomData, sync::Arc};
 use telers::{
-    error::{EventErrorKind, MiddlewareError},
+    errors::{EventErrorKind, MiddlewareError},
     event::EventReturn,
     middlewares::outer::{Middleware, MiddlewareResponse},
     router::Request,
