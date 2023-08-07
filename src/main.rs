@@ -8,9 +8,6 @@ mod infrastructure;
 mod middlewares;
 
 use config::read_config_from_env;
-use handlers::{
-    sfw_genres as sfw_genres_handler, source as source_handler, start as start_handler,
-};
 use infrastructure::{
     database::SqlxUnitOfWork,
     media_parser::{NekosBest, NekosFun, WaifuPics},
@@ -95,16 +92,25 @@ async fn main() {
 
     user_router
         .message
-        .register(start_handler)
+        .register(handlers::start::start)
         .filter(Command::many(["start", "help"]));
     user_router
         .message
-        .register(source_handler)
+        .register(handlers::source::source)
         .filter(Command::many(["source", "about"]));
     user_router
         .message
-        .register(sfw_genres_handler)
-        .filter(Command::one("sfw_genres"));
+        .register(handlers::media::gifs)
+        .filter(Command::builder().ignore_case(true).command("gifs").build());
+    user_router
+        .message
+        .register(handlers::media::images)
+        .filter(
+            Command::builder()
+                .ignore_case(true)
+                .command("images")
+                .build(),
+        );
 
     main_router.include(user_router);
 
