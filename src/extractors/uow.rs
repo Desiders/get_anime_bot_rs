@@ -1,63 +1,39 @@
 use crate::application::common::traits::UnitOfWork;
 
-use log::error;
 use std::sync::Arc;
 use telers::{
-    client::Bot, context::Context, error::ExtractionError, extract::FromEventAndContext,
+    client::Bot,
+    context::Context,
+    errors::ExtractionError,
+    extractors::{from_context_into_impl, FromEventAndContext},
     types::Update,
 };
 use tokio::sync::Mutex;
 
-/// Wrapper for foregein [`UnitOfWork`] to be used in [`FromEventAndContext`] extractor
-pub struct UnitOfWorkWrapper<UnitOfWorkType>
+pub struct UnitOfWorkWrapper<UoWType>(Arc<Mutex<UoWType>>)
 where
-    UnitOfWorkType: UnitOfWork,
-{
-    inner: Arc<Mutex<UnitOfWorkType>>,
-}
+    UoWType: UnitOfWork;
 
-impl<UnitOfWorkType> UnitOfWorkWrapper<UnitOfWorkType>
+impl<UoWType> UnitOfWorkWrapper<UoWType>
 where
-    UnitOfWorkType: UnitOfWork,
+    UoWType: UnitOfWork,
 {
-    pub fn new(inner: Arc<Mutex<UnitOfWorkType>>) -> Self {
-        Self { inner }
-    }
-
-    /// Returns inner [`UnitOfWork`] wrapped in [`Arc`] and [`Mutex`]
-    pub fn inner(&self) -> Arc<Mutex<UnitOfWorkType>> {
-        self.inner.clone()
+    pub fn inner(&self) -> Arc<Mutex<UoWType>> {
+        self.0.clone()
     }
 }
 
-impl<Client, UnitOfWorkType> FromEventAndContext<Client> for UnitOfWorkWrapper<UnitOfWorkType>
+impl<UoWType> From<Arc<Mutex<UoWType>>> for UnitOfWorkWrapper<UoWType>
 where
-    UnitOfWorkType: UnitOfWork + 'static,
+    UoWType: UnitOfWork,
 {
-    type Error = ExtractionError;
-
-    fn extract(
-        _bot: Arc<Bot<Client>>,
-        _update: Arc<Update>,
-        context: Arc<Context>,
-    ) -> Result<Self, Self::Error> {
-        let Some(result) = context.get("uow") else {
-            return Err(ExtractionError::new("No unit of work found in context"));
-        };
-
-        let uow = if let Some(uow) = result.downcast_ref::<Arc<Mutex<UnitOfWorkType>>>() {
-            uow.clone()
-        } else {
-            error!(
-                target: module_path!(),
-                "UnitOfWork in context is not a correct UnitOfWork"
-            );
-
-            return Err(ExtractionError::new(
-                "UnitOfWork in context is not a correct UnitOfWork",
-            ));
-        };
-
-        Ok(Self::new(uow))
+    fn from(inner: Arc<Mutex<UoWType>>) -> Self {
+        Self(inner)
     }
 }
+
+from_context_into_impl!(
+    [Client, UoWType: UnitOfWork],
+    Arc<Mutex<UoWType>> => UnitOfWorkWrapper<UoWType>,
+    "uow",
+);
