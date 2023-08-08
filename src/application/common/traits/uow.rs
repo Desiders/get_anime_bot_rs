@@ -14,19 +14,19 @@ pub trait UnitOfWork {
     where
         Self: 'a;
 
-    // Transaction and savepoint management (begin)
-
     /// Gets a connection of this transaction or savepoint
     fn connection(&mut self) -> Self::Connection<'_>;
 
-    /// Begins a new transaction or savepoint and returns a connection to it
-    async fn begin(&'static mut self) -> Result<Self::Connection<'_>, BeginError>;
+    // Transaction and savepoint management (begin)
 
-    /// Commits this transaction or savepoint, persisting any changes it has made
-    async fn commit(&mut self) -> Result<(), CommitError>;
+    // /// Begins a new transaction or savepoint and returns a connection to it
+    // async fn begin(&'static mut self) -> Result<Self::Connection<'_>, BeginError>;
 
-    /// Aborts this transaction or savepoint and rolls back any changes it has made
-    async fn rollback(&mut self) -> Result<(), RollbackError>;
+    // /// Commits this transaction or savepoint, persisting any changes it has made
+    // async fn commit(&mut self) -> Result<(), CommitError>;
+
+    // /// Aborts this transaction or savepoint and rolls back any changes it has made
+    // async fn rollback(&mut self) -> Result<(), RollbackError>;
 
     // Transaction and savepoint management (end)
     // Repositories and readers for each entity (begin)

@@ -14,7 +14,7 @@ use crate::application::{
 };
 
 use async_trait::async_trait;
-use sqlx::{pool::PoolConnection, Connection, Database, Transaction};
+use sqlx::{pool::PoolConnection, Database, Transaction};
 
 impl From<sqlx::Error> for BeginError {
     fn from(error: sqlx::Error) -> Self {
@@ -73,27 +73,27 @@ where
         &mut self.conn
     }
 
-    async fn begin(&'static mut self) -> Result<Self::Connection<'_>, BeginError> {
-        self.transaction = Some(self.conn.begin().await?);
+    // async fn begin(&'static mut self) -> Result<Self::Connection<'_>, BeginError> {
+    //     self.transaction = Some(self.conn.begin().await?);
 
-        Ok(self.transaction.as_mut().unwrap())
-    }
+    //     Ok(self.transaction.as_mut().unwrap())
+    // }
 
-    async fn commit(&mut self) -> Result<(), CommitError> {
-        if let Some(transaction) = self.transaction.take() {
-            transaction.commit().await.map_err(Into::into)
-        } else {
-            Ok(())
-        }
-    }
+    // async fn commit(&mut self) -> Result<(), CommitError> {
+    //     if let Some(transaction) = self.transaction.take() {
+    //         transaction.commit().await.map_err(Into::into)
+    //     } else {
+    //         Ok(())
+    //     }
+    // }
 
-    async fn rollback(&mut self) -> Result<(), RollbackError> {
-        if let Some(transaction) = self.transaction.take() {
-            transaction.rollback().await.map_err(Into::into)
-        } else {
-            Ok(())
-        }
-    }
+    // async fn rollback(&mut self) -> Result<(), RollbackError> {
+    //     if let Some(transaction) = self.transaction.take() {
+    //         transaction.rollback().await.map_err(Into::into)
+    //     } else {
+    //         Ok(())
+    //     }
+    // }
 
     fn user_repo(&mut self) -> Box<dyn UserRepo + Send + '_> {
         Box::new(UserRepoImpl::new(self.connection()))

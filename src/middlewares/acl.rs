@@ -114,11 +114,11 @@ where
             return Err(MiddlewareError::new(err).into());
         };
 
-        if let Err(err) = uow.commit().await {
-            error!(target: module_path!(), "Failed to commit after create user with tg id `{tg_id}`: {err}", tg_id = user.id);
-        } else {
-            debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
-        }
+        // if let Err(err) = uow.commit().await {
+        //     error!(target: module_path!(), "Failed to commit after create user with tg id `{tg_id}`: {err}", tg_id = user.id);
+        // } else {
+        //     debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
+        // }
 
         let db_user = UserEntity {
             id: create_user.id(),
