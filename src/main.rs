@@ -18,20 +18,20 @@ use middlewares::{
 };
 use sqlx::{PgPool, Postgres};
 use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
+use tracing::{debug_span, error_span, instrument, warn_span};
+use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
-#[tokio::main(flavor = "current_thread")]
+#[instrument]
+#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
 async fn main() {
-    match pretty_env_logger::try_init_custom_env("LOGGING_LEVEL") {
-        Ok(_) => log::debug!("Logger initialized with max level: {}", log::max_level()),
-        Err(err) => {
-            eprintln!("Error initializing logger: {err}");
-            std::process::exit(1);
-        }
-    }
-
     let config = match read_config_from_env() {
         Ok(config) => {
-            log::debug!("Config read from env");
+            tracing_subscriber::registry()
+                .with(fmt::layer().with_thread_names(true))
+                .with(EnvFilter::from_env("LOGGING_LEVEL"))
+                .init();
+
+            debug_span!("Config read from env");
             config
         }
         Err(err) => {
@@ -50,7 +50,7 @@ async fn main() {
     );
     let pool = match PgPool::connect(&url).await {
         Ok(pool) => {
-            log::debug!("Database pool created");
+            debug_span!("Database pool created");
             pool
         }
         Err(err) => {
@@ -124,7 +124,11 @@ async fn main() {
         .run_polling()
         .await
     {
-        Ok(_) => log::warn!("Bot stopped"),
-        Err(err) => log::error!("Bot stopped with error: {err}"),
+        Ok(_) => {
+            warn_span!("Bot stopped");
+        }
+        Err(err) => {
+            error_span!("Bot stopped with error", error = %err);
+        }
     }
 }

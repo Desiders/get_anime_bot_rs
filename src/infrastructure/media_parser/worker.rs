@@ -12,8 +12,10 @@ use tokio::{
     sync::mpsc::{channel as tokio_mpsc_channel, Receiver},
     time as tokio_time,
 };
+use tracing::{debug_span, error_span, info_span, instrument, warn_span};
 
 #[allow(clippy::module_name_repetitions)]
+#[derive(Debug)]
 pub struct WorkerManager {
     name: Cow<'static, str>,
     channel_buffer: usize,
@@ -51,6 +53,7 @@ impl WorkerManager {
 
 #[async_trait]
 impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
+    #[instrument]
     async fn parse(mut self, source: NekosBest<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -64,10 +67,18 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
-                            log::error!(target: module_path!(), "Error getting media list for `{name}`: {err}", name = self.name);
+                            error_span!(
+                                "Error getting media list",
+                                source_name = %self.name,
+                                err = %err,
+                            );
 
                             if let Some(backoff) = self.backoff.next_backoff() {
-                                log::warn!(target: module_path!(), "Sleep for {backoff:?} seconds for `{name}` and try again...", name = self.name);
+                                warn_span!(
+                                    "Sleep and try again...",
+                                    source_name = %self.name,
+                                    duration = backoff.as_secs_f32(),
+                                );
 
                                 tokio_time::sleep(backoff).await;
                             }
@@ -77,9 +88,9 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        log::info!(
-                            "Connection established successfully for `{name}`",
-                            name = self.name
+                        info_span!(
+                            "Connection established successfully",
+                            source_name = %self.name
                         );
 
                         failed = false;
@@ -93,15 +104,21 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
-                            log::error!(target: module_path!(), "Error sending media to channel for `{name}`: {err}", name = self.name);
+                            error_span!(
+                                "Error sending media to channel",
+                                source_name = %self.name,
+                                err = %err,
+                            );
                         }
                     }
 
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    log::debug!(
-                        "Parsed {media_list_len} media for `{name}` in {elapsed}",
-                        name = self.name
+                    debug_span!(
+                        "Media list parsed",
+                        source_name = %self.name,
+                        media_list_len = media_list_len,
+                        elapsed = elapsed,
                     );
 
                     if elapsed < 1.5 {
@@ -117,6 +134,7 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
 #[async_trait]
 impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
+    #[instrument]
     async fn parse(mut self, source: NekosFun<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -130,10 +148,18 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
-                            log::error!(target: module_path!(), "Error getting media list for `{name}`: {err}", name = self.name);
+                            error_span!(
+                                "Error getting media list",
+                                source_name = %self.name,
+                                err = %err,
+                            );
 
                             if let Some(backoff) = self.backoff.next_backoff() {
-                                log::warn!(target: module_path!(), "Sleep for {backoff:?} seconds for `{name}` and try again...", name = self.name);
+                                warn_span!(
+                                    "Sleep and try again...",
+                                    source_name = %self.name,
+                                    duration = backoff.as_secs_f32(),
+                                );
 
                                 tokio_time::sleep(backoff).await;
                             }
@@ -143,9 +169,9 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        log::info!(
-                            "Connection established successfully for `{name}`",
-                            name = self.name
+                        info_span!(
+                            "Connection established successfully",
+                            source_name = %self.name,
                         );
 
                         failed = false;
@@ -159,15 +185,21 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
-                            log::error!(target: module_path!(), "Error sending media to channel for `{name}`: {err}", name = self.name);
+                            error_span!(
+                                "Error sending media to channel",
+                                source_name = %self.name,
+                                err = %err,
+                            );
                         }
                     }
 
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    log::debug!(
-                        "Parsed {media_list_len} media for `{name}` in {elapsed}",
-                        name = self.name
+                    debug_span!(
+                        "Media list parsed",
+                        source_name = %self.name,
+                        media_list_len = media_list_len,
+                        elapsed = elapsed,
                     );
 
                     if elapsed < 1.0 {
@@ -183,6 +215,7 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
 #[async_trait]
 impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
+    #[instrument]
     async fn parse(mut self, mut source: WaifuPics<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -196,10 +229,18 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
-                            log::error!(target: module_path!(), "Error getting media list for `{name}`: {err}", name = self.name);
+                            error_span!(
+                                "Error getting media list",
+                                source_name = %self.name,
+                                err = %err,
+                            );
 
                             if let Some(backoff) = self.backoff.next_backoff() {
-                                log::warn!(target: module_path!(), "Sleep for {backoff:?} seconds for `{name}` and try again...", name = self.name);
+                                warn_span!(
+                                    "Sleep and try again...",
+                                    source_name = %self.name,
+                                    duration = backoff.as_secs_f32(),
+                                );
 
                                 tokio_time::sleep(backoff).await;
                             }
@@ -209,9 +250,9 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        log::info!(
-                            "Connection established successfully for `{name}`",
-                            name = self.name
+                        info_span!(
+                            "Connection established successfully",
+                            source_name = %self.name,
                         );
 
                         failed = false;
@@ -227,7 +268,11 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         let media_url = media.url().clone();
 
                         if let Err(err) = sender.send(media).await {
-                            log::error!(target: module_path!(), "Error sending media to channel for `{name}`: {err}", name = self.name);
+                            error_span!(
+                                "Error sending media to channel",
+                                source_name = %self.name,
+                                err = %err,
+                            );
                         } else {
                             source.exclude_url(media_url);
                         }
@@ -235,9 +280,11 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    log::debug!(
-                        "Parsed {media_list_len} media for `{name}` in {elapsed}",
-                        name = self.name
+                    debug_span!(
+                        "Media list parsed",
+                        source_name = %self.name,
+                        media_list_len = media_list_len,
+                        elapsed = elapsed,
                     );
 
                     if elapsed < 2.5 {

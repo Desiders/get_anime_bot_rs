@@ -8,6 +8,7 @@ use telers::{
     router::Request,
 };
 use tokio::sync::Mutex;
+use tracing::{error_span, instrument};
 
 use crate::infrastructure::database::SqlxUnitOfWork;
 
@@ -42,6 +43,7 @@ where
     DB: sqlx::Database,
     Client: Send + Sync + 'static,
 {
+    #[instrument(skip(self, request))]
     async fn call(
         &self,
         request: Request<Client>,
@@ -49,7 +51,7 @@ where
         let conn = match self.pool.acquire().await {
             Ok(pool_connection) => pool_connection,
             Err(err) => {
-                log::error!("Failed to acquire a connection from the pool: {err}");
+                error_span!("Failed to acquire connection from pool", err = %err);
 
                 return Err(MiddlewareError::new(err).into());
             }

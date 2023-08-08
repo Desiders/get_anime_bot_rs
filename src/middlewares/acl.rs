@@ -8,7 +8,6 @@ use crate::{
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use log::{debug, error};
 use sqlx::PgConnection;
 use std::{marker::PhantomData, sync::Arc};
 use telers::{
@@ -16,10 +15,10 @@ use telers::{
     event::EventReturn,
     middlewares::outer::{Middleware, MiddlewareResponse},
     router::Request,
-    types::User,
 };
 use time::{self, OffsetDateTime};
 use tokio::sync::Mutex;
+use tracing::{debug_span, error_span, instrument};
 use uuid::Uuid;
 
 pub struct Acl<UnitOfWorkType> {
@@ -49,35 +48,26 @@ where
         UnitOfWork<Connection<'a> = &'a mut PgConnection> + Send + Sync + 'static,
     Client: Send + Sync + 'static,
 {
+    #[instrument(skip(self, request))]
     async fn call(
         &self,
         request: Request<Client>,
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
         let context = request.context.clone();
 
-        let Some(result) = context.get("event_user") else {
-            error!(target: module_path!(), "No user found in context");
-
-            return Err(MiddlewareError::new(anyhow!("No user found in context")).into());
+        let Some(user) = request.update.user() else {
+            debug_span!("No user found in update");
+            
+            return Ok((request, EventReturn::Skip));
         };
-        let Some(user) = result.downcast_ref::<User>() else {
-            error!(
-                target: module_path!(),
-                "User in context is not a correct User"
-            );
 
-            return Err(MiddlewareError::new(anyhow!("User in context is not a correct User")).into());
-        };
         let Some(result) = context.get("uow") else {
             return Err(MiddlewareError::new(anyhow!("No unit of work found in context")).into());
         };
         let mut uow = if let Some(uow) = result.downcast_ref::<Arc<Mutex<UnitOfWorkType>>>() {
             uow.lock().await
         } else {
-            error!(
-                target: module_path!(),
-                "UnitOfWork in context is not a correct UnitOfWork"
-            );
+            error_span!("UnitOfWork in context is not a correct UnitOfWork");
 
             return Err(MiddlewareError::new(anyhow!(
                 "UnitOfWork in context is not a correct UnitOfWork"
@@ -91,17 +81,21 @@ where
             .await
         {
             Ok(db_user) => {
-                debug!(target: module_path!(), "Successful get user: {db_user:?}");
+                debug_span!("Successful get user", user = ?db_user);
 
                 context.insert("db_user", Box::new(db_user));
 
                 return Ok((request, EventReturn::Finish));
             }
             Err(RepoKind::Exception(_)) => {
-                debug!(target: module_path!(), "User with tg id `{tg_id}` not found", tg_id = user.id);
+                debug_span!("User with tg id not found", tg_id = user.id);
             }
             Err(RepoKind::Unexpected(err)) => {
-                error!(target: module_path!(), "Failed to get user by tg id `{tg_id}`: {err}", tg_id = user.id);
+                error_span!(
+                    "Failed to get user by tg id",
+                    tg_id = user.id,
+                    err = %err,
+                );
 
                 return Err(MiddlewareError::new(err).into());
             }
@@ -111,14 +105,16 @@ where
 
         // Create user if not exists
         if let Err(err) = uow.user_repo().create(create_user.clone()).await {
-            return Err(MiddlewareError::new(err).into());
-        };
+            error_span!(
+                "Failed to create user with tg id",
+                tg_id = user.id,
+                err = %err,
+            );
 
-        // if let Err(err) = uow.commit().await {
-        //     error!(target: module_path!(), "Failed to commit after create user with tg id `{tg_id}`: {err}", tg_id = user.id);
-        // } else {
-        //     debug!(target: module_path!(), "User with tg id `{tg_id}` created successful", tg_id = user.id);
-        // }
+            return Err(MiddlewareError::new(err).into());
+        } else {
+            debug_span!("User with tg id created successful", tg_id = user.id);
+        };
 
         let db_user = UserEntity {
             id: create_user.id(),
