@@ -8,7 +8,7 @@ use telers::{
     router::Request,
 };
 use tokio::sync::Mutex;
-use tracing::{error_span, instrument};
+use tracing::{event, instrument, Level};
 
 use crate::infrastructure::database::SqlxUnitOfWork;
 
@@ -48,20 +48,22 @@ where
         &self,
         request: Request<Client>,
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
+        event!(Level::DEBUG, "Acquiring connection from the pool");
+
         let conn = match self.pool.acquire().await {
             Ok(pool_connection) => pool_connection,
             Err(err) => {
-                error_span!("Failed to acquire connection from pool", err = %err);
+                event!(Level::ERROR, error = %err, "Failed to acquire connection from the pool");
 
                 return Err(MiddlewareError::new(err).into());
             }
         };
 
-        let uow = SqlxUnitOfWork::<DB>::new(conn);
+        event!(Level::DEBUG, "Connection acquired");
 
-        request
-            .context
-            .insert("uow", Box::new(Arc::new(Mutex::new(uow))));
+        let uow = Arc::new(Mutex::new(SqlxUnitOfWork::<DB>::new(conn)));
+
+        request.context.insert("uow", Box::new(uow));
 
         Ok((request, EventReturn::Finish))
     }

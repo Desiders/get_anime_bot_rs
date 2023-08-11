@@ -14,7 +14,7 @@ use crate::application::{
 };
 
 use async_trait::async_trait;
-use sqlx::{pool::PoolConnection, Database, Transaction};
+use sqlx::{pool::PoolConnection, Database};
 
 impl From<sqlx::Error> for BeginError {
     fn from(error: sqlx::Error) -> Self {
@@ -39,7 +39,6 @@ where
     DB: Database,
 {
     conn: PoolConnection<DB>,
-    transaction: Option<Transaction<'static, DB>>,
 }
 
 impl<DB> SqlxUnitOfWork<DB>
@@ -47,10 +46,7 @@ where
     DB: Database,
 {
     pub fn new(conn: PoolConnection<DB>) -> Self {
-        Self {
-            conn,
-            transaction: None,
-        }
+        Self { conn }
     }
 }
 

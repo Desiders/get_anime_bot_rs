@@ -18,7 +18,7 @@ use telers::{
 };
 use time::{self, OffsetDateTime};
 use tokio::sync::Mutex;
-use tracing::{debug_span, error_span, instrument};
+use tracing::{event, field, instrument, Level};
 use uuid::Uuid;
 
 pub struct Acl<UnitOfWorkType> {
@@ -56,8 +56,8 @@ where
         let context = request.context.clone();
 
         let Some(user) = request.update.user() else {
-            debug_span!("No user found in update");
-            
+            event!(Level::DEBUG,"No user found in update");
+
             return Ok((request, EventReturn::Skip));
         };
 
@@ -67,7 +67,10 @@ where
         let mut uow = if let Some(uow) = result.downcast_ref::<Arc<Mutex<UnitOfWorkType>>>() {
             uow.lock().await
         } else {
-            error_span!("UnitOfWork in context is not a correct UnitOfWork");
+            event!(
+                Level::ERROR,
+                "UnitOfWork in context is not a correct UnitOfWork"
+            );
 
             return Err(MiddlewareError::new(anyhow!(
                 "UnitOfWork in context is not a correct UnitOfWork"
@@ -81,20 +84,25 @@ where
             .await
         {
             Ok(db_user) => {
-                debug_span!("Successful get user", user = ?db_user);
+                event!(
+                    Level::DEBUG,
+                    user_id = field::display(db_user.id),
+                    tg_id = db_user.tg_id,
+                    "Successful get user",
+                );
 
                 context.insert("db_user", Box::new(db_user));
 
                 return Ok((request, EventReturn::Finish));
             }
             Err(RepoKind::Exception(_)) => {
-                debug_span!("User with tg id not found", tg_id = user.id);
+                event!(Level::DEBUG, tg_id = user.id, "User not found");
             }
             Err(RepoKind::Unexpected(err)) => {
-                error_span!(
-                    "Failed to get user by tg id",
+                event!(Level::ERROR,
+                    error = %err,
                     tg_id = user.id,
-                    err = %err,
+                    "Failed to get user",
                 );
 
                 return Err(MiddlewareError::new(err).into());
@@ -105,15 +113,15 @@ where
 
         // Create user if not exists
         if let Err(err) = uow.user_repo().create(create_user.clone()).await {
-            error_span!(
-                "Failed to create user with tg id",
-                tg_id = user.id,
-                err = %err,
+            event!(Level::ERROR,
+                error = %err,
+                ?create_user,
+                "Failed to create user"
             );
 
             return Err(MiddlewareError::new(err).into());
         } else {
-            debug_span!("User with tg id created successful", tg_id = user.id);
+            event!(Level::DEBUG, tg_id = user.id, "User created successful");
         };
 
         let db_user = UserEntity {

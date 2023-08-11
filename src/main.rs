@@ -18,20 +18,20 @@ use middlewares::{
 };
 use sqlx::{PgPool, Postgres};
 use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
-use tracing::{debug_span, error_span, instrument, warn_span};
+use tracing::{event, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
-#[instrument]
-#[tokio::main(flavor = "multi_thread", worker_threads = 10)]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     let config = match read_config_from_env() {
         Ok(config) => {
             tracing_subscriber::registry()
-                .with(fmt::layer().with_thread_names(true))
+                .with(fmt::layer())
                 .with(EnvFilter::from_env("LOGGING_LEVEL"))
                 .init();
 
-            debug_span!("Config read from env");
+            event!(Level::DEBUG, "Config loaded from env");
+
             config
         }
         Err(err) => {
@@ -50,11 +50,13 @@ async fn main() {
     );
     let pool = match PgPool::connect(&url).await {
         Ok(pool) => {
-            debug_span!("Database pool created");
+            event!(Level::DEBUG, "Database pool created");
+
             pool
         }
         Err(err) => {
             eprintln!("Error creating database pool: {err}");
+
             std::process::exit(1);
         }
     };
@@ -125,10 +127,10 @@ async fn main() {
         .await
     {
         Ok(_) => {
-            warn_span!("Bot stopped");
+            event!(Level::WARN, "Bot stopped");
         }
         Err(err) => {
-            error_span!("Bot stopped with error", error = %err);
+            event!(Level::ERROR, "Bot stopped with error: {err}");
         }
     }
 }

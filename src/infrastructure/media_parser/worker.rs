@@ -12,7 +12,7 @@ use tokio::{
     sync::mpsc::{channel as tokio_mpsc_channel, Receiver},
     time as tokio_time,
 };
-use tracing::{debug_span, error_span, info_span, instrument, warn_span};
+use tracing::{event, instrument, Level};
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
@@ -67,20 +67,16 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
-                            error_span!(
+                            event!(
+                                Level::ERROR,
+                                error = %err,
                                 "Error getting media list",
-                                source_name = %self.name,
-                                err = %err,
                             );
 
-                            if let Some(backoff) = self.backoff.next_backoff() {
-                                warn_span!(
-                                    "Sleep and try again...",
-                                    source_name = %self.name,
-                                    duration = backoff.as_secs_f32(),
-                                );
+                            if let Some(duration) = self.backoff.next_backoff() {
+                                event!(Level::WARN, "Sleep and try again at {duration:2?}",);
 
-                                tokio_time::sleep(backoff).await;
+                                tokio_time::sleep(duration).await;
                             }
 
                             continue;
@@ -88,10 +84,7 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        info_span!(
-                            "Connection established successfully",
-                            source_name = %self.name
-                        );
+                        event!(Level::INFO, "Connection established successfully",);
 
                         failed = false;
 
@@ -104,21 +97,18 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
-                            error_span!(
+                            event!(Level::ERROR,
+                                error = %err,
                                 "Error sending media to channel",
-                                source_name = %self.name,
-                                err = %err,
                             );
                         }
                     }
 
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    debug_span!(
-                        "Media list parsed",
-                        source_name = %self.name,
-                        media_list_len = media_list_len,
-                        elapsed = elapsed,
+                    event!(
+                        Level::DEBUG,
+                        "Media list with {media_list_len} media parsed in {elapsed:.2} seconds",
                     );
 
                     if elapsed < 1.5 {
@@ -148,20 +138,15 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
-                            error_span!(
+                            event!(Level::ERROR,
+                                error = %err,
                                 "Error getting media list",
-                                source_name = %self.name,
-                                err = %err,
                             );
 
-                            if let Some(backoff) = self.backoff.next_backoff() {
-                                warn_span!(
-                                    "Sleep and try again...",
-                                    source_name = %self.name,
-                                    duration = backoff.as_secs_f32(),
-                                );
+                            if let Some(duration) = self.backoff.next_backoff() {
+                                event!(Level::WARN, "Sleep and try again at {duration:2?}",);
 
-                                tokio_time::sleep(backoff).await;
+                                tokio_time::sleep(duration).await;
                             }
 
                             continue;
@@ -169,10 +154,7 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        info_span!(
-                            "Connection established successfully",
-                            source_name = %self.name,
-                        );
+                        event!(Level::INFO, "Connection established successfully",);
 
                         failed = false;
 
@@ -185,21 +167,18 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
-                            error_span!(
+                            event!(Level::ERROR,
+                                error = %err,
                                 "Error sending media to channel",
-                                source_name = %self.name,
-                                err = %err,
                             );
                         }
                     }
 
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    debug_span!(
-                        "Media list parsed",
-                        source_name = %self.name,
-                        media_list_len = media_list_len,
-                        elapsed = elapsed,
+                    event!(
+                        Level::DEBUG,
+                        "Media list with {media_list_len} media parsed in {elapsed:.2} seconds",
                     );
 
                     if elapsed < 1.0 {
@@ -229,18 +208,13 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
-                            error_span!(
+                            event!(Level::ERROR,
+                                error = %err,
                                 "Error getting media list",
-                                source_name = %self.name,
-                                err = %err,
                             );
 
                             if let Some(backoff) = self.backoff.next_backoff() {
-                                warn_span!(
-                                    "Sleep and try again...",
-                                    source_name = %self.name,
-                                    duration = backoff.as_secs_f32(),
-                                );
+                                event!(Level::WARN, "Sleep and try again at {backoff:2?}");
 
                                 tokio_time::sleep(backoff).await;
                             }
@@ -250,10 +224,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        info_span!(
-                            "Connection established successfully",
-                            source_name = %self.name,
-                        );
+                        event!(Level::INFO, "Connection established successfully",);
 
                         failed = false;
 
@@ -268,10 +239,9 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         let media_url = media.url().clone();
 
                         if let Err(err) = sender.send(media).await {
-                            error_span!(
+                            event!(Level::ERROR,
+                                error = %err,
                                 "Error sending media to channel",
-                                source_name = %self.name,
-                                err = %err,
                             );
                         } else {
                             source.exclude_url(media_url);
@@ -280,11 +250,9 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    debug_span!(
-                        "Media list parsed",
-                        source_name = %self.name,
-                        media_list_len = media_list_len,
-                        elapsed = elapsed,
+                    event!(
+                        Level::DEBUG,
+                        "Media list with {media_list_len} media parsed in {elapsed:.2} seconds",
                     );
 
                     if elapsed < 2.5 {
