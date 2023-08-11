@@ -2,13 +2,13 @@ use async_trait::async_trait;
 use sqlx::{Pool, Postgres};
 use std::sync::Arc;
 use telers::{
-    errors::{EventErrorKind, MiddlewareError},
+    errors::EventErrorKind,
     event::EventReturn,
     middlewares::outer::{Middleware, MiddlewareResponse},
     router::Request,
 };
 use tokio::sync::Mutex;
-use tracing::{event, instrument, Level};
+use tracing::instrument;
 
 use crate::infrastructure::database::SqlxUnitOfWork;
 
@@ -26,6 +26,16 @@ where
 {
     pub fn new(pool: Pool<DB>) -> Self {
         Self { pool }
+    }
+}
+
+impl<DB> Database<DB>
+where
+    DB: sqlx::Database,
+{
+    /// Shutdown the connection pool
+    pub async fn close(self) {
+        self.pool.close().await;
     }
 }
 
@@ -48,20 +58,7 @@ where
         &self,
         request: Request<Client>,
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
-        event!(Level::DEBUG, "Acquiring connection from the pool");
-
-        let conn = match self.pool.acquire().await {
-            Ok(pool_connection) => pool_connection,
-            Err(err) => {
-                event!(Level::ERROR, error = %err, "Failed to acquire connection from the pool");
-
-                return Err(MiddlewareError::new(err).into());
-            }
-        };
-
-        event!(Level::DEBUG, "Connection acquired");
-
-        let uow = Arc::new(Mutex::new(SqlxUnitOfWork::<DB>::new(conn)));
+        let uow = Arc::new(Mutex::new(SqlxUnitOfWork::new(self.pool.clone())));
 
         request.context.insert("uow", Box::new(uow));
 

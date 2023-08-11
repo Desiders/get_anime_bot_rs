@@ -116,6 +116,16 @@ async fn main() {
 
     main_router.include(user_router);
 
+    // Shutdown the connection pool
+    main_router.shutdown.register(
+        |database_middleware: DatabaseMiddleware<_>| async {
+            database_middleware.close().await;
+
+            Ok(())
+        },
+        (database_middleware,),
+    );
+
     let bot = Bot::new(config.bot.token);
 
     let dispatcher = Dispatcher::builder().bot(bot).router(main_router).build();

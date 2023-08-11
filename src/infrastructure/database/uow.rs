@@ -14,7 +14,7 @@ use crate::application::{
 };
 
 use async_trait::async_trait;
-use sqlx::{pool::PoolConnection, Database};
+use sqlx::{Database, Pool, Transaction};
 
 impl From<sqlx::Error> for BeginError {
     fn from(error: sqlx::Error) -> Self {
@@ -38,15 +38,19 @@ pub struct SqlxUnitOfWork<DB>
 where
     DB: Database,
 {
-    conn: PoolConnection<DB>,
+    pool: Pool<DB>,
+    transaction: Option<Transaction<'static, DB>>,
 }
 
 impl<DB> SqlxUnitOfWork<DB>
 where
     DB: Database,
 {
-    pub fn new(conn: PoolConnection<DB>) -> Self {
-        Self { conn }
+    pub fn new(pool: Pool<DB>) -> Self {
+        Self {
+            pool,
+            transaction: None,
+        }
     }
 }
 
@@ -65,61 +69,73 @@ where
 {
     type Connection<'a> = &'a mut DB::Connection where Self: 'a;
 
-    fn connection(&mut self) -> Self::Connection<'_> {
-        &mut self.conn
+    async fn connection(&mut self) -> Result<Self::Connection<'_>, BeginError> {
+        if self.transaction.is_none() {
+            self.begin().await.unwrap();
+        }
+
+        Ok(self.transaction.as_mut().unwrap())
     }
 
-    // async fn begin(&'static mut self) -> Result<Self::Connection<'_>, BeginError> {
-    //     self.transaction = Some(self.conn.begin().await?);
+    async fn begin(&mut self) -> Result<(), BeginError> {
+        self.transaction = Some(self.pool.begin().await?);
 
-    //     Ok(self.transaction.as_mut().unwrap())
-    // }
-
-    // async fn commit(&mut self) -> Result<(), CommitError> {
-    //     if let Some(transaction) = self.transaction.take() {
-    //         transaction.commit().await.map_err(Into::into)
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
-
-    // async fn rollback(&mut self) -> Result<(), RollbackError> {
-    //     if let Some(transaction) = self.transaction.take() {
-    //         transaction.rollback().await.map_err(Into::into)
-    //     } else {
-    //         Ok(())
-    //     }
-    // }
-
-    fn user_repo(&mut self) -> Box<dyn UserRepo + Send + '_> {
-        Box::new(UserRepoImpl::new(self.connection()))
+        Ok(())
     }
 
-    fn user_reader(&mut self) -> Box<dyn UserReader + Send + '_> {
-        Box::new(UserReaderImpl::new(self.connection()))
+    async fn commit(&mut self) -> Result<(), CommitError> {
+        if let Some(transaction) = self.transaction.take() {
+            transaction.commit().await.map_err(Into::into)
+        } else {
+            Ok(())
+        }
     }
 
-    fn source_repo(&mut self) -> Box<dyn SourceRepo + Send + '_> {
-        Box::new(SourceRepoImpl::new(self.connection()))
+    async fn rollback(&mut self) -> Result<(), RollbackError> {
+        if let Some(transaction) = self.transaction.take() {
+            transaction.rollback().await.map_err(Into::into)
+        } else {
+            Ok(())
+        }
     }
 
-    fn source_reader(&mut self) -> Box<dyn SourceReader + Send + '_> {
-        Box::new(SourceReaderImpl::new(self.connection()))
+    async fn user_repo(&mut self) -> Result<Box<dyn UserRepo + Send + '_>, BeginError> {
+        Ok(Box::new(UserRepoImpl::new(self.connection().await?)))
     }
 
-    fn media_repo(&mut self) -> Box<dyn MediaRepo + Send + '_> {
-        Box::new(MediaRepoImpl::new(self.connection()))
+    async fn user_reader(&mut self) -> Result<Box<dyn UserReader + Send + '_>, BeginError> {
+        Ok(Box::new(UserReaderImpl::new(self.connection().await?)))
     }
 
-    fn media_reader(&mut self) -> Box<dyn MediaReader + Send + '_> {
-        Box::new(MediaReaderImpl::new(self.connection()))
+    async fn source_repo(&mut self) -> Result<Box<dyn SourceRepo + Send + '_>, BeginError> {
+        Ok(Box::new(SourceRepoImpl::new(self.connection().await?)))
     }
 
-    fn user_media_view_repo(&mut self) -> Box<dyn UserMediaViewRepo + Send + '_> {
-        Box::new(UserMediaViewRepoImpl::new(self.connection()))
+    async fn source_reader(&mut self) -> Result<Box<dyn SourceReader + Send + '_>, BeginError> {
+        Ok(Box::new(SourceReaderImpl::new(self.connection().await?)))
     }
 
-    fn user_media_view_reader(&mut self) -> Box<dyn UserMediaViewReader + Send + '_> {
-        Box::new(UserMediaViewReaderImpl::new(self.connection()))
+    async fn media_repo(&mut self) -> Result<Box<dyn MediaRepo + Send + '_>, BeginError> {
+        Ok(Box::new(MediaRepoImpl::new(self.connection().await?)))
+    }
+
+    async fn media_reader(&mut self) -> Result<Box<dyn MediaReader + Send + '_>, BeginError> {
+        Ok(Box::new(MediaReaderImpl::new(self.connection().await?)))
+    }
+
+    async fn user_media_view_repo(
+        &mut self,
+    ) -> Result<Box<dyn UserMediaViewRepo + Send + '_>, BeginError> {
+        Ok(Box::new(UserMediaViewRepoImpl::new(
+            self.connection().await?,
+        )))
+    }
+
+    async fn user_media_view_reader(
+        &mut self,
+    ) -> Result<Box<dyn UserMediaViewReader + Send + '_>, BeginError> {
+        Ok(Box::new(UserMediaViewReaderImpl::new(
+            self.connection().await?,
+        )))
     }
 }

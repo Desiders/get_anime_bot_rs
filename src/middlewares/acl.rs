@@ -80,6 +80,8 @@ where
 
         match uow
             .user_reader()
+            .await
+            .map_err(MiddlewareError::new)?
             .get_by_tg_id(GetUserByTgId::new(user.id))
             .await
         {
@@ -112,7 +114,13 @@ where
         let create_user = CreateUser::new(Uuid::new_v4(), user.id, None, None);
 
         // Create user if not exists
-        if let Err(err) = uow.user_repo().create(create_user.clone()).await {
+        if let Err(err) = uow
+            .user_repo()
+            .await
+            .map_err(MiddlewareError::new)?
+            .create(create_user.clone())
+            .await
+        {
             event!(Level::ERROR,
                 error = %err,
                 ?create_user,
@@ -123,6 +131,8 @@ where
         } else {
             event!(Level::DEBUG, tg_id = user.id, "User created successful");
         };
+
+        uow.commit().await.map_err(MiddlewareError::new)?;
 
         let db_user = UserEntity {
             id: create_user.id(),
