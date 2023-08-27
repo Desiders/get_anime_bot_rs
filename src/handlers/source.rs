@@ -6,7 +6,9 @@ use telers::{
     utils::text_decorations::{TextDecoration as _, HTML_DECORATION},
     Bot,
 };
+use tracing::instrument;
 
+#[instrument(skip_all)]
 pub async fn source(bot: Bot, message: Message) -> HandlerResult {
     let text = format!(
         "The bot has open source code!\n\n{source_link}",

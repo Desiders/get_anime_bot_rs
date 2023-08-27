@@ -4,13 +4,16 @@ use telers::{
     types::Message,
     Bot,
 };
+use tracing::instrument;
 
+#[instrument(skip_all)]
 pub async fn start(bot: Bot, message: Message) -> HandlerResult {
     let text = format!(
         "Hi, {first_name}!\n\n\
         Get an anime GIF or image by genre!\n\
         /gifs\n\
-        /images",
+        /images\n\n\
+        /settings",
         first_name = match message.from {
             Some(user) => user.first_name,
             None => "anonymous".to_string(),

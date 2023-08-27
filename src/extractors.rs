@@ -1,3 +1,5 @@
+mod db_user;
+
 pub mod media_parser_sources;
 pub mod uow;
 

@@ -7,7 +7,7 @@ mod handlers;
 mod infrastructure;
 mod middlewares;
 
-use config::read_config_from_env;
+use config::{read_config_from_env, Database};
 use infrastructure::{
     database::SqlxUnitOfWork,
     media_parser::{NekosBest, NekosFun, WaifuPics},
@@ -17,9 +17,24 @@ use middlewares::{
     MediaParserSources as MediaParserSourcesMiddleware,
 };
 use sqlx::{PgPool, Postgres};
-use telers::{event::ToServiceProvider, filters::Command, Bot, Dispatcher, Router};
+use telers::{
+    event::ToServiceProvider,
+    filters::{Command, Text},
+    Bot, Dispatcher, Router,
+};
 use tracing::{event, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
+
+fn get_database_url_by_config(config: &Database) -> String {
+    format!(
+        "postgres://{user}:{password}@{host}:{port}/{db}",
+        user = config.user,
+        password = config.password,
+        host = config.host,
+        port = config.port,
+        db = config.db,
+    )
+}
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -40,14 +55,7 @@ async fn main() {
         }
     };
 
-    let url = format!(
-        "postgres://{user}:{password}@{host}:{port}/{db}",
-        user = config.database.user,
-        password = config.database.password,
-        host = config.database.host,
-        port = config.database.port,
-        db = config.database.db,
-    );
+    let url = get_database_url_by_config(&config.database);
     let pool = match PgPool::connect(&url).await {
         Ok(pool) => {
             event!(Level::DEBUG, "Database pool created");
@@ -103,16 +111,30 @@ async fn main() {
     user_router
         .message
         .register(handlers::media::gifs)
-        .filter(Command::builder().ignore_case(true).command("gifs").build());
+        .filter(Command::one("gifs"));
     user_router
         .message
         .register(handlers::media::images)
-        .filter(
-            Command::builder()
-                .ignore_case(true)
-                .command("images")
-                .build(),
-        );
+        .filter(Command::one("images"));
+    user_router
+        .message
+        .register(handlers::user::settings)
+        .filter(Command::one("settings"));
+    user_router
+        .callback_query
+        .register(handlers::user::update_age_restriction)
+        .filter(Text::one("user update_age_restriction"));
+    user_router
+        .callback_query
+        .register(handlers::user::update_age_restriction_callback::<SqlxUnitOfWork<Postgres>>)
+        .filter(Text::many([
+            "user enable_show_nsfw",
+            "user disable_show_nsfw",
+        ]));
+    user_router
+        .message
+        .register(handlers::media::genre::<SqlxUnitOfWork<Postgres>>)
+        .filter(Text::starts_with_single("/"));
 
     main_router.include(user_router);
 
@@ -128,7 +150,11 @@ async fn main() {
 
     let bot = Bot::new(config.bot.token);
 
-    let dispatcher = Dispatcher::builder().bot(bot).router(main_router).build();
+    let dispatcher = Dispatcher::builder()
+        .bot(bot)
+        .allowed_updates(main_router.resolve_used_update_types())
+        .router(main_router)
+        .build();
 
     match dispatcher
         .to_service_provider_default()
@@ -140,7 +166,7 @@ async fn main() {
             event!(Level::WARN, "Bot stopped");
         }
         Err(err) => {
-            event!(Level::ERROR, "Bot stopped with error: {err}");
+            event!(Level::ERROR, error = ?err, "Bot stopped with error");
         }
     }
 }
