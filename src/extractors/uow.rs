@@ -10,30 +10,30 @@ use telers::{
 };
 use tokio::sync::Mutex;
 
-pub struct UnitOfWorkWrapper<UoWType>(Arc<Mutex<UoWType>>)
+pub struct UnitOfWorkWrapper<UoW>(pub Arc<Mutex<UoW>>)
 where
-    UoWType: UnitOfWork;
+    UoW: UnitOfWork;
 
-impl<UoWType> UnitOfWorkWrapper<UoWType>
+impl<UoW> UnitOfWorkWrapper<UoW>
 where
-    UoWType: UnitOfWork,
+    UoW: UnitOfWork,
 {
-    pub fn inner(&self) -> Arc<Mutex<UoWType>> {
+    pub fn inner(&self) -> Arc<Mutex<UoW>> {
         self.0.clone()
     }
 }
 
-impl<UoWType> From<Arc<Mutex<UoWType>>> for UnitOfWorkWrapper<UoWType>
+impl<UoW> From<Arc<Mutex<UoW>>> for UnitOfWorkWrapper<UoW>
 where
-    UoWType: UnitOfWork,
+    UoW: UnitOfWork,
 {
-    fn from(inner: Arc<Mutex<UoWType>>) -> Self {
+    fn from(inner: Arc<Mutex<UoW>>) -> Self {
         Self(inner)
     }
 }
 
 from_context_into_impl!(
-    [Client, UoWType: UnitOfWork],
-    Arc<Mutex<UoWType>> => UnitOfWorkWrapper<UoWType>,
+    [Client, UoW: UnitOfWork],
+    Arc<Mutex<UoW>> => UnitOfWorkWrapper<UoW>,
     "uow",
 );

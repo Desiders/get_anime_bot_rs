@@ -27,13 +27,19 @@ impl MediaType {
     }
 }
 
+impl MediaType {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Gif => "gif",
+            Self::Image => "image",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
 impl Display for MediaType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MediaType::Gif => write!(f, "gif"),
-            MediaType::Image => write!(f, "image"),
-            MediaType::Unknown => write!(f, "unknown"),
-        }
+        f.write_str(self.as_str())
     }
 }
 

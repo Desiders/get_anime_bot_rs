@@ -128,11 +128,13 @@ where
             );
 
             return Err(MiddlewareError::new(err).into());
-        } else {
-            event!(Level::DEBUG, tg_id = user.id, "User created successful");
-        };
+        }
 
         uow.commit().await.map_err(MiddlewareError::new)?;
+
+        event!(Level::DEBUG, tg_id = user.id, "User created successful");
+
+        drop(uow);
 
         let db_user = UserEntity {
             id: create_user.id(),

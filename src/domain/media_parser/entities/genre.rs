@@ -193,12 +193,12 @@ impl<'a> TryFrom<&'a str> for Genre {
 
         let media_type: MediaType = match parts.next() {
             Some(media_type) => media_type.try_into()?,
-            None => return Err(MediaParseError::NoNameProvided),
+            None => return Err(MediaParseError::NoMediaTypeProvided),
         };
 
         let age_restriction: AgeRestriction = match parts.next() {
             Some(age_restriction) => age_restriction.try_into()?,
-            None => return Err(MediaParseError::NoMediaTypeProvided),
+            None => return Err(MediaParseError::NoAgeRestrictionProvided),
         };
 
         Ok(Self::new(name, media_type, age_restriction))

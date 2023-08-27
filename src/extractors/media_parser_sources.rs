@@ -9,7 +9,7 @@ use telers::{
     types::Update,
 };
 
-pub struct MediaParserSourceWrapper(Vec<Arc<dyn Source>>);
+pub struct MediaParserSourceWrapper(pub Vec<Arc<dyn Source>>);
 
 impl MediaParserSourceWrapper {
     pub fn inner(&self) -> &[Arc<dyn Source>] {
