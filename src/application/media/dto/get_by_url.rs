@@ -1,14 +1,14 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetMediaByUrl {
-    url: String,
+pub struct GetMediaByUrl<'a> {
+    url: &'a str,
 }
 
-impl GetMediaByUrl {
-    pub fn new(url: String) -> Self {
+impl<'a> GetMediaByUrl<'a> {
+    pub fn new(url: &'a str) -> Self {
         Self { url }
     }
 
     pub fn url(&self) -> &str {
-        &self.url
+        self.url
     }
 }

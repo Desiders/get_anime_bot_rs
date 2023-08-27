@@ -2,7 +2,10 @@ use crate::{
     application::{
         common::exceptions::{RepoError, RepoKind},
         media::{
-            dto::{CreateMedia, GetMediaById, GetMediaByUrl},
+            dto::{
+                CreateMedia, GetMediaById, GetMediaByInfo, GetMediaByInfoUnviewedByUser,
+                GetMediaByUrl,
+            },
             exceptions::{MediaIdNotExist, MediaUrlAndGenreAlreadyExists},
             traits::{MediaReader, MediaRepo},
         },
@@ -12,7 +15,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use sea_query::{Alias, Expr, PostgresQueryBuilder, Query};
+use sea_query::{Alias, Expr, JoinType, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
 use sqlx::PgConnection;
 
@@ -116,7 +119,7 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             })
     }
 
-    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<Media>, RepoError> {
+    async fn get_by_url(&mut self, media: GetMediaByUrl<'_>) -> Result<Vec<Media>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -130,6 +133,89 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .from(Alias::new("media"))
             .and_where(Expr::col(Alias::new("url")).eq(media.url()))
             .build_sqlx(PostgresQueryBuilder);
+
+        sqlx::query_as_with(&sql, values)
+            .fetch_all(&mut *self.conn)
+            .await
+            .map(|media_models: Vec<MediaModel>| media_models.into_iter().map(Into::into).collect())
+            .map_err(Into::into)
+    }
+
+    async fn get_by_info(&mut self, media: GetMediaByInfo<'_>) -> Result<Vec<Media>, RepoError> {
+        let mut query = Query::select();
+
+        query
+            .columns([
+                Alias::new("id"),
+                Alias::new("url"),
+                Alias::new("genre"),
+                Alias::new("media_type"),
+                Alias::new("is_sfw"),
+                Alias::new("source_id"),
+                Alias::new("created"),
+            ])
+            .from(Alias::new("media"))
+            .and_where(Expr::col(Alias::new("genre")).eq(media.genre()))
+            .and_where(Expr::col(Alias::new("media_type")).eq(media.media_type()))
+            .and_where(Expr::col(Alias::new("is_sfw")).eq(media.is_sfw()));
+
+        if let Some(offset) = media.offset() {
+            query.offset(offset);
+        }
+        if let Some(limit) = media.limit() {
+            query.limit(limit);
+        }
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+
+        sqlx::query_as_with(&sql, values)
+            .fetch_all(&mut *self.conn)
+            .await
+            .map(|media_models: Vec<MediaModel>| media_models.into_iter().map(Into::into).collect())
+            .map_err(Into::into)
+    }
+
+    async fn get_by_info_unviewed_by_user(
+        &mut self,
+        media: GetMediaByInfoUnviewedByUser<'_>,
+    ) -> Result<Vec<Media>, RepoError> {
+        let mut query = Query::select();
+
+        query
+            .columns([
+                (Alias::new("media"), Alias::new("id")),
+                (Alias::new("media"), Alias::new("url")),
+                (Alias::new("media"), Alias::new("genre")),
+                (Alias::new("media"), Alias::new("media_type")),
+                (Alias::new("media"), Alias::new("is_sfw")),
+                (Alias::new("media"), Alias::new("source_id")),
+                (Alias::new("media"), Alias::new("created")),
+            ])
+            .from(Alias::new("media"))
+            .join(
+                JoinType::RightJoin,
+                Alias::new("user_media_views"),
+                Expr::col((Alias::new("user_media_views"), Alias::new("user_id")))
+                    .eq(media.user_id()),
+            )
+            .and_where(
+                Expr::col((Alias::new("user_media_views"), Alias::new("media_id")))
+                    .not_equals((Alias::new("media"), Alias::new("id"))),
+            )
+            .and_where(Expr::col((Alias::new("media"), Alias::new("genre"))).eq(media.genre()))
+            .and_where(
+                Expr::col((Alias::new("media"), Alias::new("media_type"))).eq(media.media_type()),
+            )
+            .and_where(Expr::col((Alias::new("media"), Alias::new("is_sfw"))).eq(media.is_sfw()));
+
+        if let Some(offset) = media.offset() {
+            query.offset(offset);
+        }
+        if let Some(limit) = media.limit() {
+            query.limit(limit);
+        }
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
             .fetch_all(&mut *self.conn)

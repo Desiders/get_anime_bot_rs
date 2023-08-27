@@ -2,7 +2,7 @@ use crate::{
     application::{
         common::exceptions::{RepoError, RepoKind},
         media::{
-            dto::{GetMediaById, GetMediaByUrl},
+            dto::{GetMediaById, GetMediaByInfo, GetMediaByInfoUnviewedByUser, GetMediaByUrl},
             exceptions::MediaIdNotExist,
         },
     },
@@ -19,5 +19,16 @@ pub trait MediaReader {
         media: GetMediaById,
     ) -> Result<MediaEntity, RepoKind<MediaIdNotExist>>;
 
-    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<MediaEntity>, RepoError>;
+    async fn get_by_url(&mut self, media: GetMediaByUrl<'_>)
+        -> Result<Vec<MediaEntity>, RepoError>;
+
+    async fn get_by_info(
+        &mut self,
+        media: GetMediaByInfo<'_>,
+    ) -> Result<Vec<MediaEntity>, RepoError>;
+
+    async fn get_by_info_unviewed_by_user(
+        &mut self,
+        media: GetMediaByInfoUnviewedByUser<'_>,
+    ) -> Result<Vec<MediaEntity>, RepoError>;
 }
