@@ -62,6 +62,14 @@ struct ApiResponse {
 
 #[async_trait]
 impl Source for NekosFun<reqwest::Client> {
+    fn name(&self) -> &str {
+        "api.nekos.fun"
+    }
+
+    fn url(&self) -> &str {
+        &self.url
+    }
+
     fn genres(&self) -> &Genres {
         lazy_static! {
             static ref GENRES: Genres = Genres::new(

@@ -119,7 +119,7 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             })
     }
 
-    async fn get_by_url(&mut self, media: GetMediaByUrl<'_>) -> Result<Vec<Media>, RepoError> {
+    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<Media>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -141,7 +141,7 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .map_err(Into::into)
     }
 
-    async fn get_by_info(&mut self, media: GetMediaByInfo<'_>) -> Result<Vec<Media>, RepoError> {
+    async fn get_by_info(&mut self, media: GetMediaByInfo) -> Result<Vec<Media>, RepoError> {
         let mut query = Query::select();
 
         query
@@ -177,7 +177,7 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
 
     async fn get_by_info_unviewed_by_user(
         &mut self,
-        media: GetMediaByInfoUnviewedByUser<'_>,
+        media: GetMediaByInfoUnviewedByUser,
     ) -> Result<Vec<Media>, RepoError> {
         let mut query = Query::select();
 

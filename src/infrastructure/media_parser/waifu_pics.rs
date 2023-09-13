@@ -106,6 +106,14 @@ struct ApiResponse {
 
 #[async_trait]
 impl Source for WaifuPics<reqwest::Client> {
+    fn name(&self) -> &str {
+        "api.waifu.pics"
+    }
+
+    fn url(&self) -> &str {
+        &self.url
+    }
+
     fn genres(&self) -> &Genres {
         lazy_static! {
             static ref GENRES: Genres = Genres::new(

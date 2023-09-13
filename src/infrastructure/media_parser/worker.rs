@@ -1,5 +1,13 @@
 use crate::{
-    application::media_parser::traits::{Source, Worker},
+    application::{
+        common::{
+            exceptions::{BeginError, CommitError, RepoKind, RollbackError},
+            traits::UnitOfWork,
+        },
+        media::dto::CreateMedia,
+        media_parser::traits::{Source, Worker},
+        source::{dto::CreateSource, exceptions::SourceNameAndUrlAlreadyExists},
+    },
     domain::media_parser::entities::Media,
     infrastructure::media_parser::{NekosBest, NekosFun, WaifuPics},
 };
@@ -13,6 +21,7 @@ use tokio::{
     time as tokio_time,
 };
 use tracing::{event, instrument, Level};
+use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
@@ -236,7 +245,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     let now = OffsetDateTime::now_utc();
 
                     for media in media_list {
-                        let media_url = media.url().clone();
+                        let media_url = Cow::Owned(media.url().to_owned());
 
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
@@ -264,4 +273,69 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
         receiver
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ErrorKind {
+    #[error(transparent)]
+    Begin(#[from] BeginError),
+    #[error(transparent)]
+    Commit(#[from] CommitError),
+    #[error(transparent)]
+    Rollback(#[from] RollbackError),
+    #[error(transparent)]
+    SourceNameAndUrlAlreadyExists(#[from] RepoKind<SourceNameAndUrlAlreadyExists>),
+}
+
+#[instrument(skip_all)]
+async fn start_worker_manager_and_save<S, UoW>(
+    worker: WorkerManager,
+    source: S,
+    mut uow: UoW,
+) -> Result<(), ErrorKind>
+where
+    S: Source,
+    WorkerManager: Worker<S>,
+    UoW: UnitOfWork,
+{
+    let create_source_result = uow
+        .source_repo()
+        .await?
+        .create(CreateSource::new(
+            Uuid::new_v4(),
+            source.name().to_owned(),
+            source.url().to_owned(),
+        ))
+        .await;
+
+    match create_source_result {
+        Ok(_) => uow.commit().await?,
+        Err(RepoKind::Exception(_)) => uow.rollback().await?,
+        Err(RepoKind::Unexpected(_)) => uow.rollback().await?,
+    };
+
+    let mut receiver = Worker::<S>::parse(worker, source).await;
+
+    while let Some(media) = receiver.recv().await {
+        let create_media_result = uow
+            .media_repo()
+            .await?
+            .create(CreateMedia::new(
+                Uuid::new_v4(),
+                media.url().to_owned(),
+                Some(media.genre().name().to_owned().into()),
+                media.genre().media_type().as_str(),
+                Some(media.genre().age_restriction().is_sfw()),
+                Uuid::new_v4(),
+            ))
+            .await;
+
+        match create_media_result {
+            Ok(_) => uow.commit().await?,
+            Err(RepoKind::Exception(_)) => uow.rollback().await?,
+            Err(RepoKind::Unexpected(_)) => uow.rollback().await?,
+        };
+    }
+
+    Ok(())
 }

@@ -8,6 +8,7 @@ use crate::{
     extractors::{MediaParserSourceWrapper, UnitOfWorkWrapper},
 };
 
+use std::borrow::Cow;
 use telers::{
     errors::HandlerError,
     event::{telegram::HandlerResult, EventReturn},
@@ -197,7 +198,7 @@ where
         .map_err(HandlerError::new)?
         .get_by_info_unviewed_by_user(GetMediaByInfoUnviewedByUser::new(
             db_user_id,
-            Some(genre.name()),
+            Some(Cow::Owned(genre.name().to_owned())),
             genre.media_type().as_str(),
             Some(genre.is_sfw()),
             None,
