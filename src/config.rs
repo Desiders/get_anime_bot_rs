@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     env::{self, VarError},
     num::ParseIntError,
+    str::ParseBoolError,
 };
 
 pub struct Bot {
@@ -16,9 +17,14 @@ pub struct Database {
     pub db: String,
 }
 
+pub struct MediaParserWorker {
+    pub start_worker: bool,
+}
+
 pub struct Config {
     pub bot: Bot,
     pub database: Database,
+    pub media_parser_worker: MediaParserWorker,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -30,6 +36,8 @@ pub enum ErrorKind {
     },
     #[error(transparent)]
     ParseInt(#[from] ParseIntError),
+    #[error(transparent)]
+    ParseBool(#[from] ParseBoolError),
 }
 
 pub fn read_config_from_env() -> Result<Config, ErrorKind> {
@@ -87,6 +95,20 @@ pub fn read_config_from_env() -> Result<Config, ErrorKind> {
                         return Err(ErrorKind::Env {
                             source: err,
                             key: "POSTGRES_DB".into(),
+                        })
+                    }
+                },
+            },
+        },
+        media_parser_worker: MediaParserWorker {
+            start_worker: match env::var("START_MEDIA_PARSER_WORKER") {
+                Ok(start_worker) => start_worker.parse()?,
+                Err(err) => match err {
+                    VarError::NotPresent => true,
+                    VarError::NotUnicode(_) => {
+                        return Err(ErrorKind::Env {
+                            source: err,
+                            key: "START_MEDIA_PARSER_WORKER".into(),
                         })
                     }
                 },
