@@ -1,12 +1,14 @@
+use std::borrow::Cow;
+
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateMedia {
     id: Uuid,
-    url: String,
-    genre: Option<String>,
-    media_type: String,
+    url: Cow<'static, str>,
+    genre: Option<Cow<'static, str>>,
+    media_type: Cow<'static, str>,
     is_sfw: Option<bool>,
     source_id: Uuid,
 }
@@ -14,17 +16,17 @@ pub struct CreateMedia {
 impl CreateMedia {
     pub fn new(
         id: Uuid,
-        url: String,
-        genre: Option<String>,
-        media_type: String,
+        url: impl Into<Cow<'static, str>>,
+        genre: Option<Cow<'static, str>>,
+        media_type: impl Into<Cow<'static, str>>,
         is_sfw: Option<bool>,
         source_id: Uuid,
     ) -> Self {
         Self {
             id,
-            url,
+            url: url.into(),
             genre,
-            media_type,
+            media_type: media_type.into(),
             is_sfw,
             source_id,
         }

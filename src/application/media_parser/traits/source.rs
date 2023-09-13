@@ -8,6 +8,12 @@ use std::sync::Arc;
 
 #[async_trait]
 pub trait Source: Send + Sync {
+    /// Get the source name
+    fn name(&self) -> &str;
+
+    /// Get the source url
+    fn url(&self) -> &str;
+
     /// Get the genres of the media source
     fn genres(&self) -> &Genres;
 
@@ -25,6 +31,14 @@ impl<S> Source for Arc<S>
 where
     S: Source + ?Sized,
 {
+    fn name(&self) -> &str {
+        (**self).name()
+    }
+
+    fn url(&self) -> &str {
+        (**self).url()
+    }
+
     fn genres(&self) -> &Genres {
         (**self).genres()
     }

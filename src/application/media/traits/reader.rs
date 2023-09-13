@@ -19,16 +19,12 @@ pub trait MediaReader {
         media: GetMediaById,
     ) -> Result<MediaEntity, RepoKind<MediaIdNotExist>>;
 
-    async fn get_by_url(&mut self, media: GetMediaByUrl<'_>)
-        -> Result<Vec<MediaEntity>, RepoError>;
+    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<MediaEntity>, RepoError>;
 
-    async fn get_by_info(
-        &mut self,
-        media: GetMediaByInfo<'_>,
-    ) -> Result<Vec<MediaEntity>, RepoError>;
+    async fn get_by_info(&mut self, media: GetMediaByInfo) -> Result<Vec<MediaEntity>, RepoError>;
 
     async fn get_by_info_unviewed_by_user(
         &mut self,
-        media: GetMediaByInfoUnviewedByUser<'_>,
+        media: GetMediaByInfoUnviewedByUser,
     ) -> Result<Vec<MediaEntity>, RepoError>;
 }

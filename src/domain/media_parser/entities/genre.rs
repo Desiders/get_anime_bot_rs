@@ -11,7 +11,7 @@ use std::{
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Genre {
-    name: GenreName,
+    name: Cow<'static, GenreName>,
     media_type: MediaType,
     age_restriction: AgeRestriction,
 }
@@ -23,7 +23,7 @@ impl Genre {
     /// * `media_type` - The media type of the genre
     /// * `age_restriction` - The age restriction of the genre
     pub fn new(
-        name: impl Into<GenreName>,
+        name: impl Into<Cow<'static, GenreName>>,
         media_type: MediaType,
         age_restriction: AgeRestriction,
     ) -> Self {
@@ -38,7 +38,10 @@ impl Genre {
     /// # Arguments
     /// * `name` - The name of the genre
     /// * `age_restriction` - The age restriction of the genre
-    pub fn new_gif(name: impl Into<GenreName>, age_restriction: AgeRestriction) -> Self {
+    pub fn new_gif(
+        name: impl Into<Cow<'static, GenreName>>,
+        age_restriction: AgeRestriction,
+    ) -> Self {
         Genre::new(name, MediaType::Gif, age_restriction)
     }
 
@@ -46,35 +49,38 @@ impl Genre {
     /// # Arguments
     /// * `name` - The name of the genre
     /// * `age_restriction` - The age restriction of the genre
-    pub fn new_image(name: impl Into<GenreName>, age_restriction: AgeRestriction) -> Self {
+    pub fn new_image(
+        name: impl Into<Cow<'static, GenreName>>,
+        age_restriction: AgeRestriction,
+    ) -> Self {
         Genre::new(name, MediaType::Image, age_restriction)
     }
 
     /// Creates a new sfw gif genre
     /// # Arguments
     /// * `name` - The name of the genre
-    pub fn new_sfw_gif(name: impl Into<GenreName>) -> Self {
+    pub fn new_sfw_gif(name: impl Into<Cow<'static, GenreName>>) -> Self {
         Genre::new_gif(name, AgeRestriction::Sfw)
     }
 
     /// Creates a new sfw image genre
     /// # Arguments
     /// * `name` - The name of the genre
-    pub fn new_sfw_image(name: impl Into<GenreName>) -> Self {
+    pub fn new_sfw_image(name: impl Into<Cow<'static, GenreName>>) -> Self {
         Genre::new_image(name, AgeRestriction::Sfw)
     }
 
     /// Creates a new nsfw gif genre
     /// # Arguments
     /// * `name` - The name of the genre
-    pub fn new_nsfw_gif(name: impl Into<GenreName>) -> Self {
+    pub fn new_nsfw_gif(name: impl Into<Cow<'static, GenreName>>) -> Self {
         Genre::new_gif(name, AgeRestriction::Nsfw)
     }
 
     /// Creates a new nsfw image genre
     /// # Arguments
     /// * `name` - The name of the genre
-    pub fn new_nsfw_image(name: impl Into<GenreName>) -> Self {
+    pub fn new_nsfw_image(name: impl Into<Cow<'static, GenreName>>) -> Self {
         Genre::new_image(name, AgeRestriction::Nsfw)
     }
 }
@@ -121,7 +127,7 @@ pub use vec_new_nsfw_image;
 
 impl Genre {
     /// Returns the name of the genre
-    pub const fn name(&self) -> &GenreName {
+    pub fn name(&self) -> &GenreName {
         &self.name
     }
 
@@ -186,8 +192,8 @@ impl<'a> TryFrom<&'a str> for Genre {
     fn try_from(raw_genre: &'a str) -> Result<Self, Self::Error> {
         let mut parts = raw_genre.split('_');
 
-        let name: GenreName = match parts.next() {
-            Some(name) => Cow::Owned(name.to_owned()),
+        let name = match parts.next() {
+            Some(name) => name,
             None => return Err(MediaParseError::NoNameProvided),
         };
 
@@ -201,6 +207,6 @@ impl<'a> TryFrom<&'a str> for Genre {
             None => return Err(MediaParseError::NoAgeRestrictionProvided),
         };
 
-        Ok(Self::new(name, media_type, age_restriction))
+        Ok(Self::new(name.to_owned(), media_type, age_restriction))
     }
 }

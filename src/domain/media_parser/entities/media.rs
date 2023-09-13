@@ -2,10 +2,11 @@ use super::Genre;
 use crate::domain::media_parser::value_objects::MediaUrl;
 
 use serde::Deserialize;
+use std::borrow::Cow;
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Media {
-    url: MediaUrl,
+    url: Cow<'static, MediaUrl>,
     genre: Genre,
 }
 
@@ -14,7 +15,7 @@ impl Media {
     /// # Arguments
     /// * `url` - The url of the media
     /// * `genre` - The genre of the media
-    pub fn new(url: impl Into<MediaUrl>, genre: Genre) -> Self {
+    pub fn new(url: impl Into<Cow<'static, MediaUrl>>, genre: Genre) -> Self {
         Self {
             url: url.into(),
             genre,
@@ -22,7 +23,7 @@ impl Media {
     }
 
     /// Returns the url of the media
-    pub const fn url(&self) -> &MediaUrl {
+    pub fn url(&self) -> &MediaUrl {
         &self.url
     }
 

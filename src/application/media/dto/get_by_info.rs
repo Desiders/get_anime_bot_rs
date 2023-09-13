@@ -1,16 +1,18 @@
+use std::borrow::Cow;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetMediaByInfo<'a> {
-    genre: Option<&'a str>,
-    media_type: &'a str,
+pub struct GetMediaByInfo {
+    genre: Option<Cow<'static, str>>,
+    media_type: Cow<'static, str>,
     is_sfw: Option<bool>,
     offset: Option<u64>,
     limit: Option<u64>,
 }
 
-impl<'a> GetMediaByInfo<'a> {
+impl GetMediaByInfo {
     pub fn new(
-        genre: Option<&'a str>,
-        media_type: impl Into<&'a str>,
+        genre: Option<Cow<'static, str>>,
+        media_type: impl Into<Cow<'static, str>>,
         is_sfw: Option<bool>,
         offset: Option<u64>,
         limit: Option<u64>,
@@ -25,11 +27,11 @@ impl<'a> GetMediaByInfo<'a> {
     }
 
     pub fn genre(&self) -> Option<&str> {
-        self.genre
+        self.genre.as_deref()
     }
 
     pub fn media_type(&self) -> &str {
-        self.media_type
+        &self.media_type
     }
 
     pub fn is_sfw(&self) -> Option<bool> {

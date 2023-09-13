@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
@@ -5,7 +7,7 @@ use uuid::Uuid;
 pub struct CreateUser {
     id: Uuid,
     tg_id: i64,
-    language_code: Option<String>,
+    language_code: Option<Cow<'static, str>>,
     show_nsfw: Option<bool>,
 }
 
@@ -13,13 +15,13 @@ impl CreateUser {
     pub fn new(
         id: Uuid,
         tg_id: i64,
-        language_code: Option<String>,
+        language_code: Option<Cow<'static, str>>,
         show_nsfw: Option<bool>,
     ) -> Self {
         Self {
             id,
             tg_id,
-            language_code,
+            language_code: language_code.map(Into::into),
             show_nsfw,
         }
     }

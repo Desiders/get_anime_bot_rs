@@ -1,3 +1,1 @@
-use std::borrow::Cow;
-
-pub type MediaUrl = Cow<'static, str>;
+pub type MediaUrl = str;

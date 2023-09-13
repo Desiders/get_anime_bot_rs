@@ -1,16 +1,25 @@
+use std::borrow::Cow;
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateSource {
     id: Uuid,
-    name: String,
-    url: String,
+    name: Cow<'static, str>,
+    url: Cow<'static, str>,
 }
 
 impl CreateSource {
-    pub fn new(id: Uuid, name: String, url: String) -> Self {
-        Self { id, name, url }
+    pub fn new(
+        id: Uuid,
+        name: impl Into<Cow<'static, str>>,
+        url: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            url: url.into(),
+        }
     }
 
     pub fn id(&self) -> Uuid {
