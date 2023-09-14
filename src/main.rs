@@ -122,6 +122,10 @@ async fn main() {
         .filter(Command::one("settings"));
     user_router
         .callback_query
+        .register(handlers::user::settings_callback)
+        .filter(Text::one("user settings"));
+    user_router
+        .callback_query
         .register(handlers::user::update_age_restriction)
         .filter(Text::one("user update_age_restriction"));
     user_router

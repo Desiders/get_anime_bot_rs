@@ -57,7 +57,11 @@ pub async fn gifs(
         nsfw_genres = if nsfw_genres.is_empty() {
             "No NSFW GIFs available".to_string()
         } else {
-            nsfw_genres.join(" ").to_string()
+            let mut text = nsfw_genres.join(" ").to_string();
+            text.push_str(
+                "\n\n* We don't guarantee that SFW media is really SFW, so don't check it on the bus and if you're younger than 18 y.o. ^_^",
+            );
+            text
         }
     );
 

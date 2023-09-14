@@ -31,6 +31,44 @@ pub async fn settings(bot: Bot, message: Message) -> HandlerResult {
 }
 
 #[instrument(skip_all)]
+pub async fn settings_callback(bot: Bot, callback_query: CallbackQuery) -> HandlerResult {
+    let (chat_id, message_id) = if let Some(message) = callback_query.message {
+        (message.chat_id(), message.message_id)
+    } else {
+        event!(
+            Level::WARN,
+            ?callback_query,
+            "Callback query doesn't have chat id. Message is too old"
+        );
+
+        bot.send(
+            &AnswerCallbackQuery::new(callback_query.id.as_str())
+                .text("Message is too old. Please, send the command again"),
+            None,
+        )
+        .await?;
+
+        return Ok(EventReturn::Finish);
+    };
+
+    bot.send(
+        &SendMessage::new(chat_id, "Settings")
+            .reply_to_message_id(message_id)
+            .reply_markup(InlineKeyboardMarkup::new([[InlineKeyboardButton::new(
+                "Change age restriction (SFW / NSFW)",
+            )
+            .callback_data("user update_age_restriction")]])),
+        None,
+    )
+    .await?;
+
+    bot.send(&AnswerCallbackQuery::new(callback_query.id.as_str()), None)
+        .await?;
+
+    Ok(EventReturn::Finish)
+}
+
+#[instrument(skip_all)]
 pub async fn update_age_restriction(
     bot: Bot,
     callback_query: CallbackQuery,

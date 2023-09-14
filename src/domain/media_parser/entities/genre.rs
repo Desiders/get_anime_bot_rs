@@ -192,10 +192,7 @@ impl<'a> TryFrom<&'a str> for Genre {
     fn try_from(raw_genre: &'a str) -> Result<Self, Self::Error> {
         let mut parts = raw_genre.split('_');
 
-        let name = match parts.next() {
-            Some(name) => name,
-            None => return Err(MediaParseError::NoNameProvided),
-        };
+        let Some(name) = parts.next() else { return Err(MediaParseError::NoNameProvided) };
 
         let media_type: MediaType = match parts.next() {
             Some(media_type) => media_type.try_into()?,
