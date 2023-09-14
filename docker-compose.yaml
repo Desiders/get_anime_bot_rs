@@ -39,6 +39,9 @@ services:
       timeout: 60s
       retries: 5
       start_period: 10s
+    logging:
+      options:
+        max-size: 5m
 
 volumes:
   get_anime_bot.postgres.data: {}
