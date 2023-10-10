@@ -58,5 +58,40 @@ impl SourceIdNotExist {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+#[error("Source with name `{name}` and url `{url}` doesn't exist: {message}")]
+pub struct SourceNameAndUrlNotExist {
+    name: Cow<'static, str>,
+    url: Cow<'static, str>,
+    message: Cow<'static, str>,
+}
+
+impl SourceNameAndUrlNotExist {
+    pub fn new(
+        name: impl Into<Cow<'static, str>>,
+        url: impl Into<Cow<'static, str>>,
+        message: impl Into<Cow<'static, str>>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            url: url.into(),
+            message: message.into(),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn url(&self) -> &str {
+        &self.url
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
 impl ApplicationException for SourceNameAndUrlAlreadyExists {}
 impl ApplicationException for SourceIdNotExist {}
+impl ApplicationException for SourceNameAndUrlNotExist {}

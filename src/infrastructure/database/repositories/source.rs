@@ -2,8 +2,10 @@ use crate::{
     application::{
         common::exceptions::{RepoError, RepoKind},
         source::{
-            dto::{CreateSource, GetSourceById, GetSourceByName},
-            exceptions::{SourceIdNotExist, SourceNameAndUrlAlreadyExists},
+            dto::{CreateSource, GetSourceById, GetSourceByName, GetSourceByNameAndUrl},
+            exceptions::{
+                SourceIdNotExist, SourceNameAndUrlAlreadyExists, SourceNameAndUrlNotExist,
+            },
             traits::{SourceReader, SourceRepo},
         },
     },
@@ -35,11 +37,7 @@ impl<'a> SourceRepo for SourceRepoImpl<&'a mut PgConnection> {
     ) -> Result<(), RepoKind<SourceNameAndUrlAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("sources"))
-            .columns(vec![
-                Alias::new("id"),
-                Alias::new("name"),
-                Alias::new("url"),
-            ])
+            .columns([Alias::new("id"), Alias::new("name"), Alias::new("url")])
             .values_panic([
                 source.id().into(),
                 source.name().into(),
@@ -129,5 +127,39 @@ impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
                 source_models.into_iter().map(Into::into).collect()
             })
             .map_err(Into::into)
+    }
+
+    #[allow(clippy::redundant_closure_for_method_calls)]
+    async fn get_by_name_and_url(
+        &mut self,
+        source: GetSourceByNameAndUrl,
+    ) -> Result<Source, RepoKind<SourceNameAndUrlNotExist>> {
+        let (sql, values) = Query::select()
+            .columns([
+                Alias::new("id"),
+                Alias::new("name"),
+                Alias::new("url"),
+                Alias::new("created"),
+            ])
+            .from(Alias::new("sources"))
+            .and_where(Expr::col(Alias::new("name")).eq(source.name()))
+            .and_where(Expr::col(Alias::new("url")).eq(source.url()))
+            .build_sqlx(PostgresQueryBuilder);
+
+        sqlx::query_as_with(&sql, values)
+            .fetch_one(&mut *self.conn)
+            .await
+            .map(|source_model: SourceModel| source_model.into())
+            .map_err(|err| {
+                if let sqlx::Error::RowNotFound = err {
+                    RepoKind::exception(SourceNameAndUrlNotExist::new(
+                        source.name().to_owned(),
+                        source.url().to_owned(),
+                        err.to_string(),
+                    ))
+                } else {
+                    RepoKind::unexpected(err)
+                }
+            })
     }
 }

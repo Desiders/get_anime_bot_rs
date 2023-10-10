@@ -38,7 +38,7 @@ impl<'a> MediaRepo for MediaRepoImpl<&'a mut PgConnection> {
     ) -> Result<(), RepoKind<MediaUrlAndGenreAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("media"))
-            .columns(vec![
+            .columns([
                 Alias::new("id"),
                 Alias::new("url"),
                 Alias::new("genre"),

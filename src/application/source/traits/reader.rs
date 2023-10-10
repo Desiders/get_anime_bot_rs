@@ -2,8 +2,8 @@ use crate::{
     application::{
         common::exceptions::{RepoError, RepoKind},
         source::{
-            dto::{GetSourceById, GetSourceByName},
-            exceptions::SourceIdNotExist,
+            dto::{GetSourceById, GetSourceByName, GetSourceByNameAndUrl},
+            exceptions::{SourceIdNotExist, SourceNameAndUrlNotExist},
         },
     },
     domain::source::entities::Source as SourceEntity,
@@ -23,4 +23,9 @@ pub trait SourceReader {
         &mut self,
         source: GetSourceByName,
     ) -> Result<Vec<SourceEntity>, RepoError>;
+
+    async fn get_by_name_and_url(
+        &mut self,
+        source: GetSourceByNameAndUrl,
+    ) -> Result<SourceEntity, RepoKind<SourceNameAndUrlNotExist>>;
 }

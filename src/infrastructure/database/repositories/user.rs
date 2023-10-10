@@ -34,7 +34,7 @@ impl<'a> UserRepo for UserRepoImpl<&'a mut PgConnection> {
     async fn create(&mut self, user: CreateUser) -> Result<(), RepoKind<UserTgIdAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("users"))
-            .columns(vec![
+            .columns([
                 Alias::new("id"),
                 Alias::new("tg_id"),
                 Alias::new("language_code"),

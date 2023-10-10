@@ -40,7 +40,7 @@ impl<'a> UserMediaViewRepo for UserMediaViewRepoImpl<&'a mut PgConnection> {
     ) -> Result<(), RepoKind<UserMediaViewUserIdAndMediaIdAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("user_media_views"))
-            .columns(vec![
+            .columns([
                 Alias::new("id"),
                 Alias::new("user_id"),
                 Alias::new("media_id"),
