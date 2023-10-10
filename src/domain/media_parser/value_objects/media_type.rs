@@ -58,3 +58,24 @@ impl<'a> TryFrom<&'a str> for MediaType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MediaType;
+
+    #[test]
+    fn test_media_type() {
+        assert!(MediaType::Gif.is_gif());
+        assert!(MediaType::Image.is_image());
+        assert!(MediaType::Unknown.is_unknown());
+    }
+
+    #[test]
+    fn test_media_type_from_str() {
+        assert_eq!(MediaType::try_from("gif").unwrap(), MediaType::Gif);
+        assert_eq!(MediaType::try_from("image").unwrap(), MediaType::Image);
+        assert_eq!(MediaType::try_from("unknown").unwrap(), MediaType::Unknown);
+        assert_eq!(MediaType::try_from("").unwrap(), MediaType::Unknown);
+        assert!(MediaType::try_from("test").is_err());
+    }
+}

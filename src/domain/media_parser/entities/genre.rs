@@ -207,3 +207,79 @@ impl<'a> TryFrom<&'a str> for Genre {
         Ok(Self::new(name.to_owned(), media_type, age_restriction))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AgeRestriction, Genre, MediaType};
+
+    #[test]
+    fn test_genre() {
+        let genre = Genre::new("test", MediaType::Gif, AgeRestriction::Sfw);
+
+        assert_eq!(genre.name(), "test");
+        assert_eq!(genre.media_type(), &MediaType::Gif);
+        assert_eq!(genre.age_restriction(), &AgeRestriction::Sfw);
+
+        assert!(genre.is_sfw());
+        assert!(!genre.is_nsfw());
+        assert!(!genre.age_restriction_is_unknown());
+        assert!(genre.is_gif());
+        assert!(!genre.is_image());
+        assert!(!genre.media_type_is_unknown());
+    }
+
+    #[test]
+    fn test_genre_from_str() {
+        let genre: Genre = "test_gif_sfw".try_into().unwrap();
+
+        assert_eq!(genre.name(), "test");
+        assert_eq!(genre.media_type(), &MediaType::Gif);
+        assert_eq!(genre.age_restriction(), &AgeRestriction::Sfw);
+
+        assert!(genre.is_sfw());
+        assert!(!genre.is_nsfw());
+        assert!(!genre.age_restriction_is_unknown());
+        assert!(genre.is_gif());
+        assert!(!genre.is_image());
+        assert!(!genre.media_type_is_unknown());
+
+        let genre: Genre = "test_image_nsfw".try_into().unwrap();
+
+        assert_eq!(genre.name(), "test");
+        assert_eq!(genre.media_type(), &MediaType::Image);
+        assert_eq!(genre.age_restriction(), &AgeRestriction::Nsfw);
+
+        assert!(!genre.is_sfw());
+        assert!(genre.is_nsfw());
+        assert!(!genre.age_restriction_is_unknown());
+        assert!(!genre.is_gif());
+        assert!(genre.is_image());
+        assert!(!genre.media_type_is_unknown());
+
+        let genre: Genre = "test_gif_unknown".try_into().unwrap();
+
+        assert_eq!(genre.name(), "test");
+        assert_eq!(genre.media_type(), &MediaType::Gif);
+        assert_eq!(genre.age_restriction(), &AgeRestriction::Unknown);
+
+        assert!(!genre.is_sfw());
+        assert!(!genre.is_nsfw());
+        assert!(genre.age_restriction_is_unknown());
+        assert!(genre.is_gif());
+        assert!(!genre.is_image());
+        assert!(!genre.media_type_is_unknown());
+
+        let genre: Genre = "test_image_unknown".try_into().unwrap();
+
+        assert_eq!(genre.name(), "test");
+        assert_eq!(genre.media_type(), &MediaType::Image);
+        assert_eq!(genre.age_restriction(), &AgeRestriction::Unknown);
+
+        assert!(!genre.is_sfw());
+        assert!(!genre.is_nsfw());
+        assert!(genre.age_restriction_is_unknown());
+        assert!(!genre.is_gif());
+        assert!(genre.is_image());
+        assert!(!genre.media_type_is_unknown());
+    }
+}

@@ -53,3 +53,43 @@ impl<'a> TryFrom<&'a str> for AgeRestriction {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::AgeRestriction;
+
+    #[test]
+    fn test_age_restriction() {
+        assert!(AgeRestriction::Sfw.is_sfw());
+        assert!(!AgeRestriction::Sfw.is_nsfw());
+        assert!(!AgeRestriction::Sfw.is_unknown());
+
+        assert!(!AgeRestriction::Nsfw.is_sfw());
+        assert!(AgeRestriction::Nsfw.is_nsfw());
+        assert!(!AgeRestriction::Nsfw.is_unknown());
+
+        assert!(!AgeRestriction::Unknown.is_sfw());
+        assert!(!AgeRestriction::Unknown.is_nsfw());
+        assert!(AgeRestriction::Unknown.is_unknown());
+    }
+
+    #[test]
+    fn test_age_restriction_from_str() {
+        assert_eq!(
+            AgeRestriction::try_from("sfw").unwrap(),
+            AgeRestriction::Sfw
+        );
+        assert_eq!(
+            AgeRestriction::try_from("nsfw").unwrap(),
+            AgeRestriction::Nsfw
+        );
+        assert_eq!(
+            AgeRestriction::try_from("unknown").unwrap(),
+            AgeRestriction::Unknown
+        );
+        assert_eq!(
+            AgeRestriction::try_from("").unwrap(),
+            AgeRestriction::Unknown
+        );
+    }
+}
