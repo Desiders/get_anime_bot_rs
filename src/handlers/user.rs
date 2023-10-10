@@ -1,7 +1,10 @@
 use crate::{
-    application::{common::traits::UnitOfWork, user::dto::UpdateUserShowNsfw},
+    application::{
+        common::traits::{UnitOfWork, UnitOfWorkFactory},
+        user::dto::UpdateUserShowNsfw,
+    },
     domain::user::entities::User as UserEntity,
-    extractors::UnitOfWorkWrapper,
+    extractors::UnitOfWorkFactoryWrapper,
 };
 
 use anyhow::anyhow;
@@ -132,15 +135,14 @@ pub async fn update_age_restriction(
     Ok(EventReturn::Finish)
 }
 
-#[instrument(skip_all)]
-pub async fn update_age_restriction_callback<UoW>(
+pub async fn update_age_restriction_callback<UoWFactory>(
     bot: Bot,
     callback_query: CallbackQuery,
-    UnitOfWorkWrapper(uow): UnitOfWorkWrapper<UoW>,
+    UnitOfWorkFactoryWrapper(uow_factory): UnitOfWorkFactoryWrapper<UoWFactory>,
     UserEntity { id: db_user_id, .. }: UserEntity,
 ) -> HandlerResult
 where
-    UoW: UnitOfWork,
+    UoWFactory: UnitOfWorkFactory,
 {
     // `unwrap` is safe here, because we use `Text` filter for this handler, so we can be sure that `data` is `Some`
     let callback_data = callback_query.data.as_deref().unwrap();
@@ -157,7 +159,7 @@ where
         }
     };
 
-    let mut uow = uow.lock().await;
+    let mut uow = uow_factory.new_unit_of_work();
 
     uow.user_repo()
         .await

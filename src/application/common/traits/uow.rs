@@ -8,6 +8,18 @@ use crate::application::{
     user_media_view::traits::{UserMediaViewReader, UserMediaViewRepo},
 };
 
+/// A factory for creating [`UnitOfWork`]s.
+/// # Notes
+/// This need to avoid sharing [`UnitOfWork`]s directly, because [`UnitOfWork`]s methods need `&mut self`
+/// and it is not possible to share it without [`std::sync::Arc`] or [`std::sync::Mutex`].
+///
+/// If you have ideas how to do it better, please, create an issue or PR.
+pub trait UnitOfWorkFactory {
+    type UnitOfWork: UnitOfWork;
+
+    fn new_unit_of_work(&self) -> Self::UnitOfWork;
+}
+
 #[async_trait]
 pub trait UnitOfWork {
     type Connection<'a>

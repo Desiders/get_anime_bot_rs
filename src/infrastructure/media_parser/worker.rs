@@ -1,12 +1,15 @@
 use crate::{
     application::{
         common::{
-            exceptions::{BeginError, CommitError, RepoKind, RollbackError},
+            exceptions::{BeginError, CommitError, RepoError, RepoKind, RollbackError},
             traits::UnitOfWork,
         },
         media::dto::CreateMedia,
         media_parser::traits::{Source, Worker},
-        source::{dto::CreateSource, exceptions::SourceNameAndUrlAlreadyExists},
+        source::{
+            dto::{CreateSource, GetSourceByNameAndUrl},
+            exceptions::{SourceNameAndUrlAlreadyExists, SourceNameAndUrlNotExist},
+        },
     },
     domain::media_parser::entities::Media,
     infrastructure::media_parser::{NekosBest, NekosFun, WaifuPics},
@@ -14,10 +17,13 @@ use crate::{
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff as _, exponential::ExponentialBackoff, SystemClock};
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 use time::OffsetDateTime;
 use tokio::{
-    sync::mpsc::{channel as tokio_mpsc_channel, Receiver},
+    sync::{
+        mpsc::{channel as tokio_mpsc_channel, Receiver},
+        Mutex,
+    },
     time as tokio_time,
 };
 use tracing::{event, instrument, Level};
@@ -26,24 +32,17 @@ use uuid::Uuid;
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug)]
 pub struct WorkerManager {
-    name: Cow<'static, str>,
     channel_buffer: usize,
     backoff: ExponentialBackoff<SystemClock>,
 }
 
 impl WorkerManager {
     /// Create a new [`WorkerManager`]
-    /// # Arguments
-    /// * `name` - The name of the worker
     /// # Notes
     /// * The default channel buffer is 100
     /// * The default backoff is [`ExponentialBackoff::default`]
-    pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            name: name.into(),
-            channel_buffer: 100,
-            backoff: ExponentialBackoff::default(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Set the channel buffer size for the worker
@@ -60,6 +59,15 @@ impl WorkerManager {
     }
 }
 
+impl Default for WorkerManager {
+    fn default() -> Self {
+        Self {
+            channel_buffer: 100,
+            backoff: ExponentialBackoff::default(),
+        }
+    }
+}
+
 #[async_trait]
 impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
     #[instrument]
@@ -73,6 +81,8 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
             loop {
                 for genre in genres.iter() {
+                    let now = OffsetDateTime::now_utc();
+
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
@@ -102,7 +112,12 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
                     let media_list_len = media_list.len();
 
-                    let now = OffsetDateTime::now_utc();
+                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
+
+                    event!(
+                        Level::DEBUG,
+                        "Media list with {media_list_len} media parsed in {elapsed} seconds",
+                    );
 
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
@@ -113,15 +128,13 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
+                    let elapsed_with_send = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    event!(
-                        Level::DEBUG,
-                        "Media list with {media_list_len} media parsed in {elapsed:.2} seconds",
-                    );
-
-                    if elapsed < 1.5 {
-                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(1.5 - elapsed)).await;
+                    if elapsed_with_send < 1.0 {
+                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(
+                            1.0 - elapsed_with_send,
+                        ))
+                        .await;
                     }
                 }
             }
@@ -144,6 +157,8 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
             loop {
                 for genre in genres.iter() {
+                    let now = OffsetDateTime::now_utc();
+
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
@@ -172,7 +187,12 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
                     let media_list_len = media_list.len();
 
-                    let now = OffsetDateTime::now_utc();
+                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
+
+                    event!(
+                        Level::DEBUG,
+                        "Media list with {media_list_len} media parsed in {elapsed} seconds",
+                    );
 
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
@@ -183,15 +203,13 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
+                    let elapsed_with_send = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    event!(
-                        Level::DEBUG,
-                        "Media list with {media_list_len} media parsed in {elapsed:.2} seconds",
-                    );
-
-                    if elapsed < 1.0 {
-                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(1.0 - elapsed)).await;
+                    if elapsed_with_send < 1.0 {
+                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(
+                            1.0 - elapsed_with_send,
+                        ))
+                        .await;
                     }
                 }
             }
@@ -214,6 +232,8 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
             loop {
                 for genre in genres.iter() {
+                    let now = OffsetDateTime::now_utc();
+
                     let media_list = match source.get_media_list_by_genre(genre).await {
                         Ok(media_list) => media_list,
                         Err(err) => {
@@ -242,7 +262,12 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
                     let media_list_len = media_list.len();
 
-                    let now = OffsetDateTime::now_utc();
+                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
+
+                    event!(
+                        Level::DEBUG,
+                        "Media list with {media_list_len} media parsed in {elapsed} seconds",
+                    );
 
                     for media in media_list {
                         let media_url = Cow::Owned(media.url().to_owned());
@@ -257,15 +282,13 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
+                    let elapsed_with_send = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
-                    event!(
-                        Level::DEBUG,
-                        "Media list with {media_list_len} media parsed in {elapsed:.2} seconds",
-                    );
-
-                    if elapsed < 2.5 {
-                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(2.5 - elapsed)).await;
+                    if elapsed_with_send < 2.5 {
+                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(
+                            2.5 - elapsed_with_send,
+                        ))
+                        .await;
                     }
                 }
             }
@@ -285,39 +308,97 @@ pub enum ErrorKind {
     Rollback(#[from] RollbackError),
     #[error(transparent)]
     SourceNameAndUrlAlreadyExists(#[from] RepoKind<SourceNameAndUrlAlreadyExists>),
+    #[error(transparent)]
+    SourceNameAndUrlNotExist(#[from] RepoKind<SourceNameAndUrlNotExist>),
+    #[error(transparent)]
+    Unexpected(#[from] RepoError),
 }
 
-#[instrument(skip_all)]
-async fn start_worker_manager_and_save<S, UoW>(
+pub async fn start_worker_manager_and_save<S, UoW>(
     worker: WorkerManager,
     source: S,
-    mut uow: UoW,
+    uow: Arc<Mutex<UoW>>,
 ) -> Result<(), ErrorKind>
 where
     S: Source,
     WorkerManager: Worker<S>,
     UoW: UnitOfWork,
 {
-    let create_source_result = uow
+    let mut source_id = Uuid::new_v4();
+
+    let mut uow_guard = uow.lock().await;
+
+    let create_source_result = uow_guard
         .source_repo()
         .await?
         .create(CreateSource::new(
-            Uuid::new_v4(),
+            source_id,
             source.name().to_owned(),
             source.url().to_owned(),
         ))
         .await;
 
+    drop(uow_guard);
+
+    uow_guard = uow.lock().await;
+
     match create_source_result {
-        Ok(_) => uow.commit().await?,
-        Err(RepoKind::Exception(_)) => uow.rollback().await?,
-        Err(RepoKind::Unexpected(_)) => uow.rollback().await?,
+        Ok(_) => {
+            uow_guard.commit().await?;
+
+            drop(uow_guard);
+
+            event!(
+                Level::DEBUG,
+                source_name = source.name(),
+                source_url = source.url(),
+                "Source created",
+            );
+        }
+        Err(RepoKind::Exception(_)) => {
+            uow_guard.rollback().await?;
+
+            drop(uow_guard);
+
+            uow_guard = uow.lock().await;
+
+            let db_source = uow_guard
+                .source_reader()
+                .await?
+                .get_by_name_and_url(GetSourceByNameAndUrl::new(
+                    Cow::Owned(source.name().to_owned()),
+                    Cow::Owned(source.url().to_owned()),
+                ))
+                .await?;
+
+            drop(uow_guard);
+
+            event!(
+                Level::DEBUG,
+                source_name = source.name(),
+                source_url = source.url(),
+                "Source already exists",
+            );
+
+            source_id = db_source.id;
+        }
+        Err(RepoKind::Unexpected(err)) => {
+            uow_guard.rollback().await?;
+
+            drop(uow_guard);
+
+            event!(Level::ERROR, error = ?err, source_name = source.name(), source_url = source.url(), "Unexpected error while creating source");
+
+            return Err(err.into());
+        }
     };
 
     let mut receiver = Worker::<S>::parse(worker, source).await;
 
     while let Some(media) = receiver.recv().await {
-        let create_media_result = uow
+        uow_guard = uow.lock().await;
+
+        let create_media_result = uow_guard
             .media_repo()
             .await?
             .create(CreateMedia::new(
@@ -325,16 +406,22 @@ where
                 media.url().to_owned(),
                 Some(media.genre().name().to_owned().into()),
                 media.genre().media_type().as_str(),
-                Some(media.genre().age_restriction().is_sfw()),
-                Uuid::new_v4(),
+                Some(media.genre().is_sfw()),
+                source_id,
             ))
             .await;
 
+        drop(uow_guard);
+
+        uow_guard = uow.lock().await;
+
         match create_media_result {
-            Ok(_) => uow.commit().await?,
-            Err(RepoKind::Exception(_)) => uow.rollback().await?,
-            Err(RepoKind::Unexpected(_)) => uow.rollback().await?,
+            Ok(_) => uow_guard.commit().await?,
+            Err(RepoKind::Exception(_)) => uow_guard.rollback().await?,
+            Err(RepoKind::Unexpected(_)) => uow_guard.rollback().await?,
         };
+
+        drop(uow_guard);
     }
 
     Ok(())

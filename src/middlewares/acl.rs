@@ -1,6 +1,9 @@
 use crate::{
     application::{
-        common::{exceptions::RepoKind, traits::UnitOfWork},
+        common::{
+            exceptions::RepoKind,
+            traits::{UnitOfWork, UnitOfWorkFactory},
+        },
         user::dto::{CreateUser, GetUserByTgId},
     },
     domain::user::entities::User as UserEntity,
@@ -17,15 +20,15 @@ use telers::{
     router::Request,
 };
 use time::{self, OffsetDateTime};
-use tokio::sync::Mutex;
-use tracing::{event, field, instrument, Level};
+use tracing::{event, field, Level};
 use uuid::Uuid;
 
-pub struct Acl<UnitOfWorkType> {
-    _phantom: PhantomData<UnitOfWorkType>,
+#[allow(clippy::upper_case_acronyms)]
+pub struct ACL<UoWFactory> {
+    _phantom: PhantomData<UoWFactory>,
 }
 
-impl<UnitOfWorkType> Acl<UnitOfWorkType> {
+impl<UoWFactory> ACL<UoWFactory> {
     pub const fn new() -> Self {
         Self {
             _phantom: PhantomData,
@@ -33,22 +36,22 @@ impl<UnitOfWorkType> Acl<UnitOfWorkType> {
     }
 }
 
-impl<UnitOfWorkType> Clone for Acl<UnitOfWorkType> {
+impl<UoWFactory> Clone for ACL<UoWFactory> {
     fn clone(&self) -> Self {
         Self::new()
     }
 }
 
-impl<UnitOfWorkType> Copy for Acl<UnitOfWorkType> {}
+impl<UoWFactory> Copy for ACL<UoWFactory> {}
 
 #[async_trait]
-impl<UnitOfWorkType, Client> Middleware<Client> for Acl<UnitOfWorkType>
+impl<UoWFactory, Client> Middleware<Client> for ACL<UoWFactory>
 where
-    for<'a> UnitOfWorkType:
+    UoWFactory: UnitOfWorkFactory + Send + Sync + 'static,
+    for<'a> UoWFactory::UnitOfWork:
         UnitOfWork<Connection<'a> = &'a mut PgConnection> + Send + Sync + 'static,
     Client: Send + Sync + 'static,
 {
-    #[instrument(skip(self, request))]
     async fn call(
         &self,
         request: Request<Client>,
@@ -61,30 +64,31 @@ where
             return Ok((request, EventReturn::Skip));
         };
 
-        let Some(result) = context.get("uow") else {
-            return Err(MiddlewareError::new(anyhow!("No unit of work found in context")).into());
+        let Some(result) = context.get("uow_factory") else {
+            return Err(MiddlewareError::new(anyhow!("No unit of work factory found in context")).into());
         };
-        let mut uow = if let Some(uow) = result.downcast_ref::<Arc<Mutex<UnitOfWorkType>>>() {
-            uow.lock().await
-        } else {
+        let Some(uow_factory) = result.downcast_ref::<Arc<UoWFactory>>() else {
             event!(
                 Level::ERROR,
-                "UnitOfWork in context is not a correct UnitOfWork"
+                "Unit of work factory in context is not a correct `Arc<impl UnitOfWorkFactory>`"
             );
 
             return Err(MiddlewareError::new(anyhow!(
-                "UnitOfWork in context is not a correct UnitOfWork"
+                "Unit of work factory in context is not a correct `Arc<impl UnitOfWorkFactory>`"
             ))
             .into());
         };
 
-        match uow
+        let mut uow = uow_factory.new_unit_of_work();
+
+        let get_user_result = uow
             .user_reader()
             .await
             .map_err(MiddlewareError::new)?
             .get_by_tg_id(GetUserByTgId::new(user.id))
-            .await
-        {
+            .await;
+
+        match get_user_result {
             Ok(db_user) => {
                 event!(
                     Level::DEBUG,
@@ -97,9 +101,7 @@ where
 
                 return Ok((request, EventReturn::Finish));
             }
-            Err(RepoKind::Exception(_)) => {
-                event!(Level::DEBUG, tg_id = user.id, "User not found");
-            }
+            Err(RepoKind::Exception(_)) => {}
             Err(RepoKind::Unexpected(err)) => {
                 event!(Level::ERROR,
                     error = %err,
@@ -111,16 +113,20 @@ where
             }
         }
 
+        event!(Level::DEBUG, tg_id = user.id, "User not found");
+
         let create_user = CreateUser::new(Uuid::new_v4(), user.id, None, None);
 
-        // Create user if not exists
-        if let Err(err) = uow
+        let create_user_result = uow
             .user_repo()
             .await
             .map_err(MiddlewareError::new)?
             .create(create_user.clone())
-            .await
-        {
+            .await;
+
+        if let Err(err) = create_user_result {
+            uow.rollback().await.map_err(MiddlewareError::new)?;
+
             event!(Level::ERROR,
                 error = %err,
                 ?create_user,
@@ -133,8 +139,6 @@ where
         uow.commit().await.map_err(MiddlewareError::new)?;
 
         event!(Level::DEBUG, tg_id = user.id, "User created successful");
-
-        drop(uow);
 
         let db_user = UserEntity {
             id: create_user.id(),

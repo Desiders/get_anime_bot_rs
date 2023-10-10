@@ -1,3 +1,3 @@
 pub mod uow;
 
-pub use uow::UnitOfWork;
+pub use uow::{UnitOfWork, UnitOfWorkFactory};

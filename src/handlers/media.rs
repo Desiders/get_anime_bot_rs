@@ -1,14 +1,15 @@
 use crate::{
     application::{
-        common::traits::UnitOfWork, media::dto::GetMediaByInfoUnviewedByUser,
-        media_parser::traits::Source, user_media_view::dto::CreateUserMediaView,
+        common::traits::{UnitOfWork, UnitOfWorkFactory},
+        media::dto::GetMediaByInfoUnviewedByUser,
+        media_parser::traits::Source,
+        user_media_view::dto::CreateUserMediaView,
     },
     domain::media_parser::entities::Genre,
     domain::user::entities::User as UserEntity,
-    extractors::{MediaParserSourceWrapper, UnitOfWorkWrapper},
+    extractors::{MediaParserSourceWrapper, UnitOfWorkFactoryWrapper},
 };
 
-use std::borrow::Cow;
 use telers::{
     errors::HandlerError,
     event::{telegram::HandlerResult, EventReturn},
@@ -65,11 +66,15 @@ pub async fn gifs(
         }
     );
 
+    event!(Level::DEBUG, "Sending message");
+
     bot.send(
         &SendMessage::new(message.chat.id, text).reply_to_message_id(message.message_id),
         None,
     )
     .await?;
+
+    event!(Level::DEBUG, "Message sended");
 
     Ok(EventReturn::Finish)
 }
@@ -117,20 +122,24 @@ pub async fn images(
         }
     );
 
+    event!(Level::DEBUG, "Sending message");
+
     bot.send(
         &SendMessage::new(message.chat.id, text).reply_to_message_id(message.message_id),
         None,
     )
     .await?;
 
+    event!(Level::DEBUG, "Message sended");
+
     Ok(EventReturn::Finish)
 }
 
 #[instrument(skip_all)]
-pub async fn genre<UoW>(
+pub async fn genre<UoWFactory>(
     bot: Bot,
     message: Message,
-    UnitOfWorkWrapper(uow): UnitOfWorkWrapper<UoW>,
+    UnitOfWorkFactoryWrapper(uow_factory): UnitOfWorkFactoryWrapper<UoWFactory>,
     CommandObject {
         command: genre,
         args,
@@ -143,8 +152,10 @@ pub async fn genre<UoW>(
     }: UserEntity,
 ) -> HandlerResult
 where
-    UoW: UnitOfWork,
+    UoWFactory: UnitOfWorkFactory,
 {
+    event!(Level::DEBUG, genre = %genre, args = ?args, "Parsing genre");
+
     let genre: Genre = match genre.as_str().try_into() {
         Ok(genre) => genre,
         Err(err) => {
@@ -194,7 +205,7 @@ where
         1
     } as u64;
 
-    let mut uow = uow.lock().await;
+    let mut uow = uow_factory.new_unit_of_work();
 
     let media_group = uow
         .media_reader()
@@ -202,7 +213,7 @@ where
         .map_err(HandlerError::new)?
         .get_by_info_unviewed_by_user(GetMediaByInfoUnviewedByUser::new(
             db_user_id,
-            Some(Cow::Owned(genre.name().to_owned())),
+            Some(genre.name().to_owned().into()),
             genre.media_type().as_str(),
             Some(genre.is_sfw()),
             None,

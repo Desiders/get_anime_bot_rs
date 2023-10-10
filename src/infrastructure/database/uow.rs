@@ -5,7 +5,7 @@ use super::repositories::{
 use crate::application::{
     common::{
         exceptions::{BeginError, CommitError, RollbackError},
-        traits::UnitOfWork,
+        traits::{UnitOfWork, UnitOfWorkFactory},
     },
     media::traits::{MediaReader, MediaRepo},
     source::traits::{SourceReader, SourceRepo},
@@ -31,6 +31,42 @@ impl From<sqlx::Error> for CommitError {
 impl From<sqlx::Error> for RollbackError {
     fn from(error: sqlx::Error) -> Self {
         Self::new(error.to_string())
+    }
+}
+
+#[derive(Clone)]
+pub struct SqlxUnitOfWorkFactory<DB>
+where
+    DB: Database,
+{
+    pool: Pool<DB>,
+}
+
+impl<DB> SqlxUnitOfWorkFactory<DB>
+where
+    DB: Database,
+{
+    pub fn new(pool: Pool<DB>) -> Self {
+        Self { pool }
+    }
+}
+
+impl<DB> UnitOfWorkFactory for SqlxUnitOfWorkFactory<DB>
+where
+    DB: Database,
+    for<'a> UserRepoImpl<&'a mut DB::Connection>: UserRepo,
+    for<'a> UserReaderImpl<&'a mut DB::Connection>: UserReader,
+    for<'a> SourceRepoImpl<&'a mut DB::Connection>: SourceRepo,
+    for<'a> SourceReaderImpl<&'a mut DB::Connection>: SourceReader,
+    for<'a> MediaRepoImpl<&'a mut DB::Connection>: MediaRepo,
+    for<'a> MediaReaderImpl<&'a mut DB::Connection>: MediaReader,
+    for<'a> UserMediaViewRepoImpl<&'a mut DB::Connection>: UserMediaViewRepo,
+    for<'a> UserMediaViewReaderImpl<&'a mut DB::Connection>: UserMediaViewReader,
+{
+    type UnitOfWork = SqlxUnitOfWork<DB>;
+
+    fn new_unit_of_work(&self) -> Self::UnitOfWork {
+        SqlxUnitOfWork::new(self.pool.clone())
     }
 }
 

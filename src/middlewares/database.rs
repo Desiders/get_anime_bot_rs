@@ -1,3 +1,5 @@
+use crate::infrastructure::database::SqlxUnitOfWorkFactory;
+
 use async_trait::async_trait;
 use sqlx::{Pool, Postgres};
 use std::sync::Arc;
@@ -7,10 +9,7 @@ use telers::{
     middlewares::outer::{Middleware, MiddlewareResponse},
     router::Request,
 };
-use tokio::sync::Mutex;
 use tracing::instrument;
-
-use crate::infrastructure::database::SqlxUnitOfWork;
 
 #[allow(clippy::module_name_repetitions)]
 pub struct Database<DB>
@@ -18,6 +17,7 @@ where
     DB: sqlx::Database,
 {
     pool: Pool<DB>,
+    uow_factory: Arc<SqlxUnitOfWorkFactory<DB>>,
 }
 
 impl<DB> Database<DB>
@@ -25,7 +25,10 @@ where
     DB: sqlx::Database,
 {
     pub fn new(pool: Pool<DB>) -> Self {
-        Self { pool }
+        Self {
+            pool: pool.clone(),
+            uow_factory: Arc::new(SqlxUnitOfWorkFactory::new(pool)),
+        }
     }
 }
 
@@ -43,6 +46,7 @@ impl Clone for Database<Postgres> {
     fn clone(&self) -> Self {
         Self {
             pool: self.pool.clone(),
+            uow_factory: self.uow_factory.clone(),
         }
     }
 }
@@ -58,9 +62,9 @@ where
         &self,
         request: Request<Client>,
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
-        let uow = Arc::new(Mutex::new(SqlxUnitOfWork::new(self.pool.clone())));
-
-        request.context.insert("uow", Box::new(uow));
+        request
+            .context
+            .insert("uow_factory", Box::new(self.uow_factory.clone()));
 
         Ok((request, EventReturn::Finish))
     }
