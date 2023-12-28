@@ -14,46 +14,12 @@ pub struct MediaParserSources {
 }
 
 impl MediaParserSources {
-    pub fn new<T, S, I>(sources: I) -> Self
-    where
-        S: Source + 'static,
-        T: Into<Arc<S>>,
-        I: IntoIterator<Item = T>,
-    {
-        Self {
-            sources: sources
-                .into_iter()
-                .map(|source| source.into() as _)
-                .collect(),
-        }
-    }
-
-    pub fn source<S>(self, source: impl Into<Arc<S>>) -> Self
+    pub fn source<S>(mut self, source: impl Into<Arc<S>>) -> Self
     where
         S: Source + 'static,
     {
-        Self {
-            sources: self
-                .sources
-                .into_iter()
-                .chain(Some(source.into() as _))
-                .collect(),
-        }
-    }
-
-    pub fn sources<T, S, I>(self, sources: I) -> Self
-    where
-        S: Source + 'static,
-        T: Into<Arc<S>>,
-        I: IntoIterator<Item = T>,
-    {
-        Self {
-            sources: self
-                .sources
-                .into_iter()
-                .chain(sources.into_iter().map(|source| source.into() as _))
-                .collect(),
-        }
+        self.sources.push(source.into());
+        self
     }
 }
 

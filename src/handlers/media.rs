@@ -68,11 +68,8 @@ pub async fn gifs(
 
     event!(Level::DEBUG, "Sending message");
 
-    bot.send(
-        &SendMessage::new(message.chat.id, text).reply_to_message_id(message.message_id),
-        None,
-    )
-    .await?;
+    bot.send(SendMessage::new(message.chat().id(), text).reply_to_message_id(message.id()))
+        .await?;
 
     event!(Level::DEBUG, "Message sended");
 
@@ -124,11 +121,8 @@ pub async fn images(
 
     event!(Level::DEBUG, "Sending message");
 
-    bot.send(
-        &SendMessage::new(message.chat.id, text).reply_to_message_id(message.message_id),
-        None,
-    )
-    .await?;
+    bot.send(SendMessage::new(message.chat().id(), text).reply_to_message_id(message.id()))
+        .await?;
 
     event!(Level::DEBUG, "Message sended");
 
@@ -156,15 +150,14 @@ where
 {
     event!(Level::DEBUG, genre = %genre, args = ?args, "Parsing genre");
 
-    let genre: Genre = match genre.as_str().try_into() {
+    let genre: Genre = match genre.as_ref().try_into() {
         Ok(genre) => genre,
         Err(err) => {
             event!(Level::DEBUG, error = %err, raw_genre = genre, "Failed to parse genre");
 
             bot.send(
-                &SendMessage::new(message.chat.id, err.to_string())
-                    .reply_to_message_id(message.message_id),
-                None,
+                SendMessage::new(message.chat().id(), err.to_string())
+                    .reply_to_message_id(message.id()),
             )
             .await?;
 
@@ -180,12 +173,11 @@ where
 
     if !genre.is_sfw() && !show_nsfw {
         bot.send(
-            &SendMessage::new(
-                message.chat.id,
+            SendMessage::new(
+                message.chat().id(),
                 "NSFW content is disabled. You can enable it in the settings.\n\n/settings",
             )
-            .reply_to_message_id(message.message_id),
-            None,
+            .reply_to_message_id(message.id()),
         )
         .await?;
 
@@ -226,9 +218,8 @@ where
 
     if media_group_len == 0 {
         bot.send(
-            &SendMessage::new(message.chat.id, "No media found for genre")
-                .reply_to_message_id(message.message_id),
-            None,
+            SendMessage::new(message.chat().id(), "No media found for genre")
+                .reply_to_message_id(message.id()),
         )
         .await?;
     } else if media_group_len == 1 {
@@ -236,9 +227,8 @@ where
         let media = media_group.first().unwrap();
 
         bot.send(
-            &SendDocument::new(message.chat.id, InputFile::url(&media.url))
-                .reply_to_message_id(message.message_id),
-            None,
+            &SendDocument::new(message.chat().id(), InputFile::url(&media.url))
+                .reply_to_message_id(message.id()),
         )
         .await?;
 
@@ -260,9 +250,8 @@ where
             .map(|media| InputMediaDocument::new(InputFile::url(&media.url)));
 
         bot.send(
-            &SendMediaGroup::new(message.chat.id, input_media_group)
-                .reply_to_message_id(message.message_id),
-            None,
+            &SendMediaGroup::new(message.chat().id(), input_media_group)
+                .reply_to_message_id(message.id()),
         )
         .await?;
 

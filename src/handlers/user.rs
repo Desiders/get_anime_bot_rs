@@ -20,13 +20,12 @@ use tracing::{event, instrument, Level};
 #[instrument(skip_all)]
 pub async fn settings(bot: Bot, message: Message) -> HandlerResult {
     bot.send(
-        &SendMessage::new(message.chat_id(), "Settings")
-            .reply_to_message_id(message.message_id)
+        SendMessage::new(message.chat().id(), "Settings")
+            .reply_to_message_id(message.id())
             .reply_markup(InlineKeyboardMarkup::new([[InlineKeyboardButton::new(
                 "Change age restriction (SFW / NSFW)",
             )
             .callback_data("user update_age_restriction")]])),
-        None,
     )
     .await?;
 
@@ -36,7 +35,7 @@ pub async fn settings(bot: Bot, message: Message) -> HandlerResult {
 #[instrument(skip_all)]
 pub async fn settings_callback(bot: Bot, callback_query: CallbackQuery) -> HandlerResult {
     let (chat_id, message_id) = if let Some(message) = callback_query.message {
-        (message.chat_id(), message.message_id)
+        (message.chat().id(), message.id())
     } else {
         event!(
             Level::WARN,
@@ -45,9 +44,8 @@ pub async fn settings_callback(bot: Bot, callback_query: CallbackQuery) -> Handl
         );
 
         bot.send(
-            &AnswerCallbackQuery::new(callback_query.id.as_str())
+            AnswerCallbackQuery::new(callback_query.id)
                 .text("Message is too old. Please, send the command again"),
-            None,
         )
         .await?;
 
@@ -55,17 +53,16 @@ pub async fn settings_callback(bot: Bot, callback_query: CallbackQuery) -> Handl
     };
 
     bot.send(
-        &SendMessage::new(chat_id, "Settings")
+        SendMessage::new(chat_id, "Settings")
             .reply_to_message_id(message_id)
             .reply_markup(InlineKeyboardMarkup::new([[InlineKeyboardButton::new(
                 "Change age restriction (SFW / NSFW)",
             )
             .callback_data("user update_age_restriction")]])),
-        None,
     )
     .await?;
 
-    bot.send(&AnswerCallbackQuery::new(callback_query.id.as_str()), None)
+    bot.send(AnswerCallbackQuery::new(callback_query.id))
         .await?;
 
     Ok(EventReturn::Finish)
@@ -84,7 +81,7 @@ pub async fn update_age_restriction(
     };
 
     let (chat_id, message_id) = if let Some(message) = callback_query.message {
-        (message.chat_id(), message.message_id)
+        (message.chat().id(), message.id())
     } else {
         event!(
             Level::WARN,
@@ -93,9 +90,8 @@ pub async fn update_age_restriction(
         );
 
         bot.send(
-            &AnswerCallbackQuery::new(callback_query.id.as_str())
+            AnswerCallbackQuery::new(callback_query.id)
                 .text("Message is too old. Please, send the command again"),
-            None,
         )
         .await?;
 
@@ -104,18 +100,17 @@ pub async fn update_age_restriction(
 
     if show_nsfw {
         bot.send(
-            &SendMessage::new(chat_id, "Change age restriction")
+            SendMessage::new(chat_id, "Change age restriction")
                 .reply_to_message_id(message_id)
                 .reply_markup(InlineKeyboardMarkup::new([[InlineKeyboardButton::new(
                     "Disable show NSFW",
                 )
                 .callback_data("user disable_show_nsfw")]])),
-            None,
         )
         .await?;
     } else {
         bot.send(
-            &SendMessage::new(
+            SendMessage::new(
                 chat_id,
                 "Change age restriction\n\nBy clicking on the button, you confirm that you're 18 years old",
             )
@@ -124,12 +119,11 @@ pub async fn update_age_restriction(
                     "Enable show NSFW (18+)",
                 )
                 .callback_data("user enable_show_nsfw")]])),
-            None,
         )
         .await?;
     }
 
-    bot.send(&AnswerCallbackQuery::new(callback_query.id.as_str()), None)
+    bot.send(AnswerCallbackQuery::new(callback_query.id))
         .await?;
 
     Ok(EventReturn::Finish)
@@ -177,19 +171,15 @@ where
     };
 
     bot.send(
-        &AnswerCallbackQuery::new(callback_query.id.as_str())
+        AnswerCallbackQuery::new(callback_query.id.as_ref())
             .text(text)
             .cache_time(5),
-        None,
     )
     .await?;
 
     if let Some(message) = callback_query.message {
-        bot.send(
-            &DeleteMessage::new(message.chat_id(), message.message_id),
-            None,
-        )
-        .await?;
+        bot.send(DeleteMessage::new(message.chat().id(), message.id()))
+            .await?;
     } else {
         event!(
             Level::WARN,

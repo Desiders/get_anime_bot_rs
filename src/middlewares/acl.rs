@@ -58,14 +58,16 @@ where
     ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
         let context = request.context.clone();
 
-        let Some(user) = request.update.user() else {
-            event!(Level::DEBUG,"No user found in update");
+        let Some(user_id) = request.update.from_id() else {
+            event!(Level::DEBUG, "No user found in update");
 
             return Ok((request, EventReturn::Skip));
         };
 
         let Some(result) = context.get("uow_factory") else {
-            return Err(MiddlewareError::new(anyhow!("No unit of work factory found in context")).into());
+            return Err(
+                MiddlewareError::new(anyhow!("No unit of work factory found in context")).into(),
+            );
         };
         let Some(uow_factory) = result.downcast_ref::<Arc<UoWFactory>>() else {
             event!(
@@ -85,7 +87,7 @@ where
             .user_reader()
             .await
             .map_err(MiddlewareError::new)?
-            .get_by_tg_id(GetUserByTgId::new(user.id))
+            .get_by_tg_id(GetUserByTgId::new(user_id))
             .await;
 
         match get_user_result {
@@ -105,7 +107,7 @@ where
             Err(RepoKind::Unexpected(err)) => {
                 event!(Level::ERROR,
                     error = %err,
-                    tg_id = user.id,
+                    tg_id = user_id,
                     "Failed to get user",
                 );
 
@@ -113,9 +115,9 @@ where
             }
         }
 
-        event!(Level::DEBUG, tg_id = user.id, "User not found");
+        event!(Level::DEBUG, tg_id = user_id, "User not found");
 
-        let create_user = CreateUser::new(Uuid::new_v4(), user.id, None, None);
+        let create_user = CreateUser::new(Uuid::new_v4(), user_id, None, None);
 
         let create_user_result = uow
             .user_repo()
@@ -138,7 +140,7 @@ where
 
         uow.commit().await.map_err(MiddlewareError::new)?;
 
-        event!(Level::DEBUG, tg_id = user.id, "User created successful");
+        event!(Level::DEBUG, tg_id = user_id, "User created successful");
 
         let db_user = UserEntity {
             id: create_user.id(),

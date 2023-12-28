@@ -5,7 +5,7 @@ use telers::{
     client::Bot,
     context::Context,
     errors::ExtractionError,
-    extractors::{from_context_into_impl, FromEventAndContext},
+    extractors::{from_context_into, FromEventAndContext},
     types::Update,
 };
 
@@ -22,7 +22,7 @@ where
     }
 }
 
-from_context_into_impl!(
+from_context_into!(
     [Client, UoWFactory: UnitOfWorkFactory], Arc<UoWFactory> => UnitOfWorkFactoryWrapper<UoWFactory>,
     "uow_factory",
 );

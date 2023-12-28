@@ -5,7 +5,7 @@ use telers::{
     client::Bot,
     context::Context,
     errors::ExtractionError,
-    extractors::{from_context_into_impl, FromEventAndContext},
+    extractors::{from_context_into, FromEventAndContext},
     types::Update,
 };
 
@@ -23,4 +23,4 @@ impl From<Vec<Arc<dyn Source>>> for MediaParserSourceWrapper {
     }
 }
 
-from_context_into_impl!([Client], Vec<Arc<dyn Source>> => MediaParserSourceWrapper, "media_parser_sources");
+from_context_into!([Client], Vec<Arc<dyn Source>> => MediaParserSourceWrapper, "media_parser_sources");

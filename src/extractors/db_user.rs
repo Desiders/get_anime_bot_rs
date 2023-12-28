@@ -5,8 +5,8 @@ use telers::{
     client::Bot,
     context::Context,
     errors::ExtractionError,
-    extractors::{from_context_impl, FromEventAndContext},
+    extractors::{from_context, FromEventAndContext},
     types::Update,
 };
 
-from_context_impl!([Client], UserEntity, "db_user");
+from_context!([Client], UserEntity, "db_user");
