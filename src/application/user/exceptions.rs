@@ -17,14 +17,6 @@ impl UserTgIdAlreadyExists {
             message: message.into(),
         }
     }
-
-    pub fn tg_id(&self) -> i64 {
-        self.tg_id
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -41,14 +33,6 @@ impl UserIdNotExist {
             message: message.into(),
         }
     }
-
-    pub fn id(&self) -> Uuid {
-        self.id
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -64,14 +48,6 @@ impl UserTgIdNotExist {
             tg_id,
             message: message.into(),
         }
-    }
-
-    pub fn tg_id(&self) -> i64 {
-        self.tg_id
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
     }
 }
 

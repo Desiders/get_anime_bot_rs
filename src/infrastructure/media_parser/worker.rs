@@ -36,29 +36,6 @@ pub struct WorkerManager {
     backoff: ExponentialBackoff<SystemClock>,
 }
 
-impl WorkerManager {
-    /// Create a new [`WorkerManager`]
-    /// # Notes
-    /// * The default channel buffer is 100
-    /// * The default backoff is [`ExponentialBackoff::default`]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set the channel buffer size for the worker
-    pub fn with_channel_buffer(self, channel_buffer: usize) -> Self {
-        Self {
-            channel_buffer,
-            ..self
-        }
-    }
-
-    /// Set the backoff for the worker
-    pub fn with_backoff(self, backoff: ExponentialBackoff<SystemClock>) -> Self {
-        Self { backoff, ..self }
-    }
-}
-
 impl Default for WorkerManager {
     fn default() -> Self {
         Self {

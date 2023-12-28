@@ -19,14 +19,6 @@ impl<'a> AgeRestrictionParse<'a> {
             message: message.into(),
         }
     }
-
-    pub fn raw_age_restriction(&self) -> &str {
-        &self.raw_age_restriction
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -45,14 +37,6 @@ impl<'a> MediaTypeParse<'a> {
             raw_media_type: raw_media_type.into(),
             message: message.into(),
         }
-    }
-
-    pub fn raw_media_type(&self) -> &str {
-        &self.raw_media_type
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
     }
 }
 

@@ -78,18 +78,6 @@ impl SourceNameAndUrlNotExist {
             message: message.into(),
         }
     }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn url(&self) -> &str {
-        &self.url
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 impl ApplicationException for SourceNameAndUrlAlreadyExists {}

@@ -20,18 +20,6 @@ impl MediaUrlAndGenreAlreadyExists {
             message: message.into(),
         }
     }
-
-    pub fn url(&self) -> &str {
-        &self.url
-    }
-
-    pub fn genre(&self) -> Option<&str> {
-        self.genre.as_deref()
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -47,14 +35,6 @@ impl MediaIdNotExist {
             id,
             message: message.into(),
         }
-    }
-
-    pub fn id(&self) -> Uuid {
-        self.id
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
     }
 }
 

@@ -30,15 +30,6 @@ impl<Client> NekosFun<Client> {
             url: "http://api.nekos.fun:8080/api".into(),
         }
     }
-
-    /// Set the url of the api.
-    /// By default, it's set as `http://api.nekos.fun:8080/api`.
-    pub fn with_url(self, url: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            client: self.client,
-            url: url.into(),
-        }
-    }
 }
 
 impl Default for NekosFun {

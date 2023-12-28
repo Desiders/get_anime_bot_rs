@@ -38,58 +38,9 @@ impl<Client> WaifuPics<Client> {
         }
     }
 
-    /// Set the url of the api.
-    /// By default, it's set as `https://api.waifu.pics`.
-    pub fn with_url(self, url: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            client: self.client,
-            exclude_urls: self.exclude_urls,
-            url: url.into(),
-        }
-    }
-
-    /// Set the exclude url
-    pub fn with_exclude_url(self, exclude_url: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            client: self.client,
-            exclude_urls: self
-                .exclude_urls
-                .into_iter()
-                .chain(Some(exclude_url.into()))
-                .collect(),
-            url: self.url,
-        }
-    }
-
-    /// Set the exclude urls
-    pub fn with_exclude_urls<T, I>(self, exclude_urls: I) -> Self
-    where
-        T: Into<Cow<'static, str>>,
-        I: IntoIterator<Item = T>,
-    {
-        Self {
-            client: self.client,
-            exclude_urls: self
-                .exclude_urls
-                .into_iter()
-                .chain(exclude_urls.into_iter().map(Into::into))
-                .collect(),
-            url: self.url,
-        }
-    }
-
     /// Set the exclude url with a mutable reference
     pub fn exclude_url(&mut self, exclude_url: impl Into<Cow<'static, str>>) {
         self.exclude_urls.push(exclude_url.into());
-    }
-
-    /// Set the exclude urls with a mutable reference
-    pub fn exclude_urls<T, I>(&mut self, exclude_urls: I)
-    where
-        T: Into<Cow<'static, str>>,
-        I: IntoIterator<Item = T>,
-    {
-        self.exclude_urls = exclude_urls.into_iter().map(Into::into).collect();
     }
 }
 

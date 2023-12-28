@@ -18,10 +18,6 @@ impl RepoError {
             message: message.into(),
         }
     }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 impl ApplicationException for RepoError {}
@@ -63,10 +59,6 @@ impl BeginError {
             message: message.into(),
         }
     }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 impl ApplicationException for BeginError {}
@@ -84,10 +76,6 @@ impl CommitError {
             message: message.into(),
         }
     }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 impl ApplicationException for CommitError {}
@@ -104,10 +92,6 @@ impl RollbackError {
         Self {
             message: message.into(),
         }
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
     }
 }
 

@@ -30,15 +30,6 @@ impl<Client> NekosBest<Client> {
             url: "https://nekos.best/api/v2".into(),
         }
     }
-
-    /// Set the url of the api.
-    /// By default, it's set as `https://nekos.best/api/v2`.
-    pub fn with_url(self, url: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            client: self.client,
-            url: url.into(),
-        }
-    }
 }
 
 impl Default for NekosBest {

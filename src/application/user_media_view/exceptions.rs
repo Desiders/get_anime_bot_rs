@@ -21,18 +21,6 @@ impl UserMediaViewUserIdAndMediaIdAlreadyExists {
             message: message.into(),
         }
     }
-
-    pub fn user_id(&self) -> Uuid {
-        self.user_id
-    }
-
-    pub fn media_id(&self) -> Uuid {
-        self.media_id
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -48,14 +36,6 @@ impl UserMediaViewIdNotExist {
             id,
             message: message.into(),
         }
-    }
-
-    pub fn id(&self) -> Uuid {
-        self.id
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
     }
 }
 

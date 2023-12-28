@@ -19,14 +19,6 @@ impl MediaGetException {
             message: message.into(),
         }
     }
-
-    pub fn genre(&self) -> &Genre {
-        &self.genre
-    }
-
-    pub fn message(&self) -> &str {
-        &self.message
-    }
 }
 
 impl ApplicationException for MediaGetException {}
