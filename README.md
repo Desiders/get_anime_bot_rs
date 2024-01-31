@@ -18,12 +18,7 @@ A telegram bot written to easily get anime images and GIF files of different gen
 
 ## Migrations
 
-To start the migrations, you need to launch the application, uncomment two lines in `docker.compose.yaml` so that you can connect to the database in the docker container:
-```yaml
-extra_hosts:
-    - "host.docker.internal:host-gateway"
-```
-Further, you need to install [`sqlx-cli`](https://crates.io/crates/sqlx-cli) or something else for migration purposes, but here we use it.
+To start the migrations, you need to launch the application, install [`sqlx-cli`](https://crates.io/crates/sqlx-cli) or something else for migration purposes, but here we use `sqlx-cli`.
 ```bash
 $ cargo install sqlx-cli --no-default-features --features rustls,postgres
 ```
@@ -38,11 +33,6 @@ $ sqlx migrate run --source ./src/infrastructure/database/migrations --database-
 Run a migration:
 ```bash
 $ sqlx migrate run --source ./src/infrastructure/database/migrations --database-url postgres://{user}:{password}@{host}:{port}/{db}
-```
-Comment out the lines in `docker-compose.yaml` back:
-```yaml
-# extra_hosts:
-#     - "host.docker.internal:host-gateway"
 ```
 
 For more info, check `README.md` file of [`sqlx-cli`](https://crates.io/crates/sqlx-cli) crate and [`docker-compose`](https://docs.docker.com/compose/compose-file/compose-file-v3/) file docs.
