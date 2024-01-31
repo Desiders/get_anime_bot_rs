@@ -1,16 +1,16 @@
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetUserMediaViewById {
-    id: Uuid,
+pub struct GetUserMediaViewById<'a> {
+    id: &'a Uuid,
 }
 
-impl GetUserMediaViewById {
-    pub fn new(id: Uuid) -> Self {
+impl<'a> GetUserMediaViewById<'a> {
+    pub const fn new(id: &'a Uuid) -> Self {
         Self { id }
     }
 
-    pub fn id(&self) -> Uuid {
+    pub const fn id(&self) -> &Uuid {
         self.id
     }
 }

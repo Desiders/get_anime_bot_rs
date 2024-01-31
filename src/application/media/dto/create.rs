@@ -1,58 +1,56 @@
-use std::borrow::Cow;
-
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CreateMedia {
-    id: Uuid,
-    url: Cow<'static, str>,
-    genre: Option<Cow<'static, str>>,
-    media_type: Cow<'static, str>,
+pub struct CreateMedia<'a> {
+    id: &'a Uuid,
+    url: &'a str,
+    genre: Option<&'a str>,
+    media_type: &'a str,
     is_sfw: Option<bool>,
-    source_id: Uuid,
+    source_id: &'a Uuid,
 }
 
-impl CreateMedia {
-    pub fn new(
-        id: Uuid,
-        url: impl Into<Cow<'static, str>>,
-        genre: Option<Cow<'static, str>>,
-        media_type: impl Into<Cow<'static, str>>,
+impl<'a> CreateMedia<'a> {
+    pub const fn new(
+        id: &'a Uuid,
+        url: &'a str,
+        genre: Option<&'a str>,
+        media_type: &'a str,
         is_sfw: Option<bool>,
-        source_id: Uuid,
+        source_id: &'a Uuid,
     ) -> Self {
         Self {
             id,
-            url: url.into(),
+            url,
             genre,
-            media_type: media_type.into(),
+            media_type,
             is_sfw,
             source_id,
         }
     }
 
-    pub fn id(&self) -> Uuid {
+    pub const fn id(&self) -> &Uuid {
         self.id
     }
 
-    pub fn url(&self) -> &str {
-        &self.url
+    pub const fn url(&self) -> &str {
+        self.url
     }
 
-    pub fn genre(&self) -> Option<&str> {
-        self.genre.as_deref()
+    pub const fn genre(&self) -> Option<&str> {
+        self.genre
     }
 
-    pub fn media_type(&self) -> &str {
-        &self.media_type
+    pub const fn media_type(&self) -> &str {
+        self.media_type
     }
 
-    pub fn is_sfw(&self) -> Option<bool> {
+    pub const fn is_sfw(&self) -> Option<bool> {
         self.is_sfw
     }
 
-    pub fn source_id(&self) -> Uuid {
+    pub const fn source_id(&self) -> &Uuid {
         self.source_id
     }
 }

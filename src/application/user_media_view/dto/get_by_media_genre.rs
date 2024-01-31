@@ -1,16 +1,14 @@
-use std::borrow::Cow;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetUserMediaViewByMediaGenre {
-    genre: Option<Cow<'static, str>>,
+pub struct GetUserMediaViewByMediaGenre<'a> {
+    genre: Option<&'a str>,
 }
 
-impl GetUserMediaViewByMediaGenre {
-    pub fn new(genre: Option<Cow<'static, str>>) -> Self {
+impl<'a> GetUserMediaViewByMediaGenre<'a> {
+    pub const fn new(genre: Option<&'a str>) -> Self {
         Self { genre }
     }
 
-    pub fn genre(&self) -> Option<&str> {
-        self.genre.as_deref()
+    pub const fn genre(&self) -> Option<&str> {
+        self.genre
     }
 }

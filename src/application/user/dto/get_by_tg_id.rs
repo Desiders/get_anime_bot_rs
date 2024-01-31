@@ -4,11 +4,11 @@ pub struct GetUserByTgId {
 }
 
 impl GetUserByTgId {
-    pub fn new(tg_id: i64) -> Self {
+    pub const fn new(tg_id: i64) -> Self {
         Self { tg_id }
     }
 
-    pub fn tg_id(&self) -> i64 {
+    pub const fn tg_id(&self) -> i64 {
         self.tg_id
     }
 }

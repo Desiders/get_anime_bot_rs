@@ -4,11 +4,11 @@ pub struct GetUserMediaViewByUserTgId {
 }
 
 impl GetUserMediaViewByUserTgId {
-    pub fn new(user_tg_id: i64) -> Self {
+    pub const fn new(user_tg_id: i64) -> Self {
         Self { user_tg_id }
     }
 
-    pub fn user_tg_id(&self) -> i64 {
+    pub const fn user_tg_id(&self) -> i64 {
         self.user_tg_id
     }
 }

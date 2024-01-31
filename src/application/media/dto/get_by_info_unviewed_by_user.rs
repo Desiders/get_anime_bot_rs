@@ -1,21 +1,20 @@
-use std::borrow::Cow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetMediaByInfoUnviewedByUser {
-    user_id: Uuid,
-    genre: Option<Cow<'static, str>>,
-    media_type: Cow<'static, str>,
+pub struct GetMediaByInfoUnviewedByUser<'a> {
+    user_id: &'a Uuid,
+    genre: Option<&'a str>,
+    media_type: &'a str,
     is_sfw: Option<bool>,
     offset: Option<u64>,
     limit: Option<u64>,
 }
 
-impl GetMediaByInfoUnviewedByUser {
-    pub fn new(
-        user_id: Uuid,
-        genre: Option<Cow<'static, str>>,
-        media_type: impl Into<Cow<'static, str>>,
+impl<'a> GetMediaByInfoUnviewedByUser<'a> {
+    pub const fn new(
+        user_id: &'a Uuid,
+        genre: Option<&'a str>,
+        media_type: &'a str,
         is_sfw: Option<bool>,
         offset: Option<u64>,
         limit: Option<u64>,
@@ -23,34 +22,34 @@ impl GetMediaByInfoUnviewedByUser {
         Self {
             user_id,
             genre,
-            media_type: media_type.into(),
+            media_type,
             is_sfw,
             offset,
             limit,
         }
     }
 
-    pub fn user_id(&self) -> Uuid {
+    pub const fn user_id(&self) -> &Uuid {
         self.user_id
     }
 
-    pub fn genre(&self) -> Option<&str> {
-        self.genre.as_deref()
+    pub const fn genre(&self) -> Option<&str> {
+        self.genre
     }
 
-    pub fn media_type(&self) -> &str {
-        &self.media_type
+    pub const fn media_type(&self) -> &str {
+        self.media_type
     }
 
-    pub fn is_sfw(&self) -> Option<bool> {
+    pub const fn is_sfw(&self) -> Option<bool> {
         self.is_sfw
     }
 
-    pub fn offset(&self) -> Option<u64> {
+    pub const fn offset(&self) -> Option<u64> {
         self.offset
     }
 
-    pub fn limit(&self) -> Option<u64> {
+    pub const fn limit(&self) -> Option<u64> {
         self.limit
     }
 }

@@ -1,44 +1,42 @@
-use std::borrow::Cow;
-
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CreateUser {
-    id: Uuid,
+pub struct CreateUser<'a> {
+    id: &'a Uuid,
     tg_id: i64,
-    language_code: Option<Cow<'static, str>>,
+    language_code: Option<&'a str>,
     show_nsfw: Option<bool>,
 }
 
-impl CreateUser {
-    pub fn new(
-        id: Uuid,
+impl<'a> CreateUser<'a> {
+    pub const fn new(
+        id: &'a Uuid,
         tg_id: i64,
-        language_code: Option<Cow<'static, str>>,
+        language_code: Option<&'a str>,
         show_nsfw: Option<bool>,
     ) -> Self {
         Self {
             id,
             tg_id,
-            language_code: language_code.map(Into::into),
+            language_code,
             show_nsfw,
         }
     }
 
-    pub fn id(&self) -> Uuid {
+    pub const fn id(&self) -> &Uuid {
         self.id
     }
 
-    pub fn tg_id(&self) -> i64 {
+    pub const fn tg_id(&self) -> i64 {
         self.tg_id
     }
 
-    pub fn language_code(&self) -> Option<&str> {
-        self.language_code.as_deref()
+    pub const fn language_code(&self) -> Option<&str> {
+        self.language_code
     }
 
-    pub fn show_nsfw(&self) -> Option<bool> {
+    pub const fn show_nsfw(&self) -> Option<bool> {
         self.show_nsfw
     }
 }

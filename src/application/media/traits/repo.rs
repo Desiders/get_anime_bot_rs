@@ -8,8 +8,8 @@ use async_trait::async_trait;
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait MediaRepo {
-    async fn create(
+    async fn create<'s>(
         &mut self,
-        media: CreateMedia,
+        media: CreateMedia<'s>,
     ) -> Result<(), RepoKind<MediaUrlAndGenreAlreadyExists>>;
 }

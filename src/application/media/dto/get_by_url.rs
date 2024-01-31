@@ -1,16 +1,14 @@
-use std::borrow::Cow;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetMediaByUrl {
-    url: Cow<'static, str>,
+pub struct GetMediaByUrl<'a> {
+    url: &'a str,
 }
 
-impl GetMediaByUrl {
-    pub fn new(url: impl Into<Cow<'static, str>>) -> Self {
-        Self { url: url.into() }
+impl<'a> GetMediaByUrl<'a> {
+    pub const fn new(url: &'a str) -> Self {
+        Self { url }
     }
 
-    pub fn url(&self) -> &str {
-        &self.url
+    pub const fn url(&self) -> &str {
+        self.url
     }
 }

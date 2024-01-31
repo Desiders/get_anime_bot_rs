@@ -14,18 +14,18 @@ use async_trait::async_trait;
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait SourceReader {
-    async fn get_by_id(
+    async fn get_by_id<'s>(
         &mut self,
-        source: GetSourceById,
+        source: GetSourceById<'s>,
     ) -> Result<SourceEntity, RepoKind<SourceIdNotExist>>;
 
-    async fn get_by_name(
+    async fn get_by_name<'s>(
         &mut self,
-        source: GetSourceByName,
+        source: GetSourceByName<'s>,
     ) -> Result<Vec<SourceEntity>, RepoError>;
 
-    async fn get_by_name_and_url(
+    async fn get_by_name_and_url<'s>(
         &mut self,
-        source: GetSourceByNameAndUrl,
+        source: GetSourceByNameAndUrl<'s>,
     ) -> Result<SourceEntity, RepoKind<SourceNameAndUrlNotExist>>;
 }

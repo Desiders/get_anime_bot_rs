@@ -14,17 +14,23 @@ use async_trait::async_trait;
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait MediaReader {
-    async fn get_by_id(
+    async fn get_by_id<'s>(
         &mut self,
-        media: GetMediaById,
+        media: GetMediaById<'s>,
     ) -> Result<MediaEntity, RepoKind<MediaIdNotExist>>;
 
-    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<MediaEntity>, RepoError>;
-
-    async fn get_by_info(&mut self, media: GetMediaByInfo) -> Result<Vec<MediaEntity>, RepoError>;
-
-    async fn get_by_info_unviewed_by_user(
+    async fn get_by_url<'s>(
         &mut self,
-        media: GetMediaByInfoUnviewedByUser,
+        media: GetMediaByUrl<'s>,
+    ) -> Result<Vec<MediaEntity>, RepoError>;
+
+    async fn get_by_info<'s>(
+        &mut self,
+        media: GetMediaByInfo<'s>,
+    ) -> Result<Vec<MediaEntity>, RepoError>;
+
+    async fn get_by_info_unviewed_by_user<'s>(
+        &mut self,
+        media: GetMediaByInfoUnviewedByUser<'s>,
     ) -> Result<Vec<MediaEntity>, RepoError>;
 }

@@ -1,16 +1,16 @@
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetSourceById {
-    id: Uuid,
+pub struct GetSourceById<'a> {
+    id: &'a Uuid,
 }
 
-impl GetSourceById {
-    pub fn new(id: Uuid) -> Self {
+impl<'a> GetSourceById<'a> {
+    pub const fn new(id: &'a Uuid) -> Self {
         Self { id }
     }
 
-    pub fn id(&self) -> Uuid {
+    pub const fn id(&self) -> &Uuid {
         self.id
     }
 }

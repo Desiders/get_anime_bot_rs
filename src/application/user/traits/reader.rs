@@ -14,9 +14,9 @@ use async_trait::async_trait;
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]
 pub trait UserReader {
-    async fn get_by_id(
+    async fn get_by_id<'s>(
         &mut self,
-        user: GetUserById,
+        user: GetUserById<'s>,
     ) -> Result<UserEntity, RepoKind<UserIdNotExist>>;
 
     async fn get_by_tg_id(

@@ -4,11 +4,11 @@ pub struct GetUserMediaViewByMediaAgeRestriction {
 }
 
 impl GetUserMediaViewByMediaAgeRestriction {
-    pub fn new(is_sfw: Option<bool>) -> Self {
+    pub const fn new(is_sfw: Option<bool>) -> Self {
         Self { is_sfw }
     }
 
-    pub fn is_sfw(&self) -> Option<bool> {
+    pub const fn is_sfw(&self) -> Option<bool> {
         self.is_sfw
     }
 }

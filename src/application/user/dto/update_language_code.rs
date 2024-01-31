@@ -1,25 +1,21 @@
-use std::borrow::Cow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct UpdateUserLanguageCode {
-    id: Uuid,
-    language_code: Cow<'static, str>,
+pub struct UpdateUserLanguageCode<'a> {
+    id: &'a Uuid,
+    language_code: &'a str,
 }
 
-impl UpdateUserLanguageCode {
-    pub fn new(id: Uuid, language_code: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            id,
-            language_code: language_code.into(),
-        }
+impl<'a> UpdateUserLanguageCode<'a> {
+    pub const fn new(id: &'a Uuid, language_code: &'a str) -> Self {
+        Self { id, language_code }
     }
 
-    pub fn id(&self) -> Uuid {
+    pub const fn id(&self) -> &Uuid {
         self.id
     }
 
-    pub fn language_code(&self) -> &str {
-        &self.language_code
+    pub const fn language_code(&self) -> &str {
+        self.language_code
     }
 }

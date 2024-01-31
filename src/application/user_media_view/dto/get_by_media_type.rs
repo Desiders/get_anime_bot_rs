@@ -1,18 +1,14 @@
-use std::borrow::Cow;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetUserMediaViewByMediaType {
-    media_type: Cow<'static, str>,
+pub struct GetUserMediaViewByMediaType<'a> {
+    media_type: &'a str,
 }
 
-impl GetUserMediaViewByMediaType {
-    pub fn new(media_type: impl Into<Cow<'static, str>>) -> Self {
-        Self {
-            media_type: media_type.into(),
-        }
+impl<'a> GetUserMediaViewByMediaType<'a> {
+    pub const fn new(media_type: &'a str) -> Self {
+        Self { media_type }
     }
 
-    pub fn media_type(&self) -> &str {
-        &self.media_type
+    pub const fn media_type(&self) -> &str {
+        self.media_type
     }
 }

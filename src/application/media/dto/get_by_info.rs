@@ -1,48 +1,46 @@
-use std::borrow::Cow;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GetMediaByInfo {
-    genre: Option<Cow<'static, str>>,
-    media_type: Cow<'static, str>,
+pub struct GetMediaByInfo<'a> {
+    genre: Option<&'a str>,
+    media_type: &'a str,
     is_sfw: Option<bool>,
     offset: Option<u64>,
     limit: Option<u64>,
 }
 
-impl GetMediaByInfo {
-    pub fn new(
-        genre: Option<Cow<'static, str>>,
-        media_type: impl Into<Cow<'static, str>>,
+impl<'a> GetMediaByInfo<'a> {
+    pub const fn new(
+        genre: Option<&'a str>,
+        media_type: &'a str,
         is_sfw: Option<bool>,
         offset: Option<u64>,
         limit: Option<u64>,
     ) -> Self {
         Self {
             genre,
-            media_type: media_type.into(),
+            media_type,
             is_sfw,
             offset,
             limit,
         }
     }
 
-    pub fn genre(&self) -> Option<&str> {
-        self.genre.as_deref()
+    pub const fn genre(&self) -> Option<&str> {
+        self.genre
     }
 
-    pub fn media_type(&self) -> &str {
-        &self.media_type
+    pub const fn media_type(&self) -> &str {
+        self.media_type
     }
 
-    pub fn is_sfw(&self) -> Option<bool> {
+    pub const fn is_sfw(&self) -> Option<bool> {
         self.is_sfw
     }
 
-    pub fn offset(&self) -> Option<u64> {
+    pub const fn offset(&self) -> Option<u64> {
         self.offset
     }
 
-    pub fn limit(&self) -> Option<u64> {
+    pub const fn limit(&self) -> Option<u64> {
         self.limit
     }
 }
