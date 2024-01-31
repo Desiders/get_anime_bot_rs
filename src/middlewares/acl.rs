@@ -12,7 +12,7 @@ use crate::{
 use anyhow::anyhow;
 use async_trait::async_trait;
 use sqlx::PgConnection;
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 use telers::{
     errors::{EventErrorKind, MiddlewareError},
     event::EventReturn,
@@ -20,7 +20,7 @@ use telers::{
     router::Request,
 };
 use time::{self, OffsetDateTime};
-use tracing::{event, field, Level};
+use tracing::{event, field, instrument, Level, Span};
 use uuid::Uuid;
 
 #[allow(clippy::upper_case_acronyms)]
@@ -38,7 +38,7 @@ impl<UoWFactory> ACL<UoWFactory> {
 
 impl<UoWFactory> Clone for ACL<UoWFactory> {
     fn clone(&self) -> Self {
-        Self::new()
+        *self
     }
 }
 
@@ -52,6 +52,7 @@ where
         UnitOfWork<Connection<'a> = &'a mut PgConnection> + Send + Sync + 'static,
     Client: Send + Sync + 'static,
 {
+    #[instrument(skip_all, fields(user_id))]
     async fn call(
         &self,
         request: Request<Client>,
@@ -64,17 +65,14 @@ where
             return Ok((request, EventReturn::Skip));
         };
 
+        Span::current().record("user_id", user_id);
+
         let Some(result) = context.get("uow_factory") else {
             return Err(
                 MiddlewareError::new(anyhow!("No unit of work factory found in context")).into(),
             );
         };
-        let Some(uow_factory) = result.downcast_ref::<Arc<UoWFactory>>() else {
-            event!(
-                Level::ERROR,
-                "Unit of work factory in context is not a correct `Arc<impl UnitOfWorkFactory>`"
-            );
-
+        let Some(uow_factory) = result.downcast_ref::<UoWFactory>() else {
             return Err(MiddlewareError::new(anyhow!(
                 "Unit of work factory in context is not a correct `Arc<impl UnitOfWorkFactory>`"
             ))
@@ -94,8 +92,7 @@ where
             Ok(db_user) => {
                 event!(
                     Level::DEBUG,
-                    user_id = field::display(db_user.id),
-                    tg_id = db_user.tg_id,
+                    db_user_id = field::display(db_user.id),
                     "Successful get user",
                 );
 
@@ -105,19 +102,17 @@ where
             }
             Err(RepoKind::Exception(_)) => {}
             Err(RepoKind::Unexpected(err)) => {
-                event!(Level::ERROR,
-                    error = %err,
-                    tg_id = user_id,
-                    "Failed to get user",
-                );
+                event!(Level::ERROR, %err, "Failed to get user");
 
                 return Err(MiddlewareError::new(err).into());
             }
         }
 
-        event!(Level::DEBUG, tg_id = user_id, "User not found");
+        event!(Level::DEBUG, "User not found");
 
-        let create_user = CreateUser::new(Uuid::new_v4(), user_id, None, None);
+        let db_user_id = Uuid::new_v4();
+
+        let create_user = CreateUser::new(&db_user_id, user_id, None, None);
 
         let create_user_result = uow
             .user_repo()
@@ -130,7 +125,7 @@ where
             uow.rollback().await.map_err(MiddlewareError::new)?;
 
             event!(Level::ERROR,
-                error = %err,
+                %err,
                 ?create_user,
                 "Failed to create user"
             );
@@ -140,10 +135,10 @@ where
 
         uow.commit().await.map_err(MiddlewareError::new)?;
 
-        event!(Level::DEBUG, tg_id = user_id, "User created successful");
+        event!(Level::DEBUG, "User created successful");
 
         let db_user = UserEntity {
-            id: create_user.id(),
+            id: *create_user.id(),
             tg_id: create_user.tg_id(),
             language_code: create_user.language_code().map(ToOwned::to_owned),
             show_nsfw: create_user.show_nsfw(),

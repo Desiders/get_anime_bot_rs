@@ -32,9 +32,9 @@ impl<Conn> MediaRepoImpl<Conn> {
 
 #[async_trait]
 impl<'a> MediaRepo for MediaRepoImpl<&'a mut PgConnection> {
-    async fn create(
+    async fn create<'s>(
         &mut self,
-        media: CreateMedia,
+        media: CreateMedia<'s>,
     ) -> Result<(), RepoKind<MediaUrlAndGenreAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("media"))
@@ -47,12 +47,12 @@ impl<'a> MediaRepo for MediaRepoImpl<&'a mut PgConnection> {
                 Alias::new("source_id"),
             ])
             .values_panic([
-                media.id().into(),
+                (*media.id()).into(),
                 media.url().into(),
                 media.genre().into(),
                 media.media_type().into(),
                 media.is_sfw().into(),
-                media.source_id().into(),
+                (*media.source_id()).into(),
             ])
             .build_sqlx(PostgresQueryBuilder);
 
@@ -91,7 +91,10 @@ impl<Conn> MediaReaderImpl<Conn> {
 #[async_trait]
 impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_id(&mut self, media: GetMediaById) -> Result<Media, RepoKind<MediaIdNotExist>> {
+    async fn get_by_id<'s>(
+        &mut self,
+        media: GetMediaById<'s>,
+    ) -> Result<Media, RepoKind<MediaIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -103,7 +106,7 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("media"))
-            .and_where(Expr::col(Alias::new("id")).eq(media.id()))
+            .and_where(Expr::col(Alias::new("id")).eq(*media.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
@@ -112,14 +115,14 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .map(|media_model: MediaModel| media_model.into())
             .map_err(|err| {
                 if let sqlx::Error::RowNotFound = err {
-                    RepoKind::exception(MediaIdNotExist::new(media.id(), err.to_string()))
+                    RepoKind::exception(MediaIdNotExist::new(*media.id(), err.to_string()))
                 } else {
                     RepoKind::unexpected(err)
                 }
             })
     }
 
-    async fn get_by_url(&mut self, media: GetMediaByUrl) -> Result<Vec<Media>, RepoError> {
+    async fn get_by_url<'s>(&mut self, media: GetMediaByUrl<'s>) -> Result<Vec<Media>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -141,7 +144,10 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .map_err(Into::into)
     }
 
-    async fn get_by_info(&mut self, media: GetMediaByInfo) -> Result<Vec<Media>, RepoError> {
+    async fn get_by_info<'s>(
+        &mut self,
+        media: GetMediaByInfo<'s>,
+    ) -> Result<Vec<Media>, RepoError> {
         let mut query = Query::select();
 
         query
@@ -175,9 +181,9 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .map_err(Into::into)
     }
 
-    async fn get_by_info_unviewed_by_user(
+    async fn get_by_info_unviewed_by_user<'s>(
         &mut self,
-        media: GetMediaByInfoUnviewedByUser,
+        media: GetMediaByInfoUnviewedByUser<'s>,
     ) -> Result<Vec<Media>, RepoError> {
         let mut query = Query::select();
 
@@ -193,15 +199,16 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             ])
             .from(Alias::new("media"))
             .join(
-                JoinType::RightJoin,
+                JoinType::LeftJoin,
                 Alias::new("user_media_views"),
                 Expr::col((Alias::new("user_media_views"), Alias::new("user_id")))
-                    .eq(media.user_id()),
+                    .eq(*media.user_id())
+                    .and(
+                        Expr::col((Alias::new("user_media_views"), Alias::new("media_id")))
+                            .equals((Alias::new("media"), Alias::new("id"))),
+                    ),
             )
-            .and_where(
-                Expr::col((Alias::new("user_media_views"), Alias::new("media_id")))
-                    .not_equals((Alias::new("media"), Alias::new("id"))),
-            )
+            .and_where(Expr::col((Alias::new("user_media_views"), Alias::new("id"))).is_null())
             .and_where(Expr::col((Alias::new("media"), Alias::new("genre"))).eq(media.genre()))
             .and_where(
                 Expr::col((Alias::new("media"), Alias::new("media_type"))).eq(media.media_type()),

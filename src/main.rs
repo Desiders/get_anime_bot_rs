@@ -7,116 +7,26 @@ mod handlers;
 mod infrastructure;
 mod middlewares;
 
-use application::common::traits::UnitOfWork;
-use config::{read_config_from_env, Database};
+use config::read_config_from_env;
 use infrastructure::{
-    database::{SqlxUnitOfWork, SqlxUnitOfWorkFactory},
-    media_parser::{
-        worker::start_worker_manager_and_save, NekosBest, NekosFun, WaifuPics, WorkerManager,
-    },
+    database::SqlxUnitOfWorkFactory,
+    media_parser::{worker, NekosBest, NekosFun, WaifuPics},
 };
 use middlewares::{
     Database as DatabaseMiddleware, MediaParserSources as MediaParserSourcesMiddleware,
     ACL as ACLMiddleware,
 };
-use sqlx::{PgPool, Postgres};
-use std::sync::Arc;
+use sqlx::{PgPool, Pool, Postgres};
 use telers::{
     event::ToServiceProvider,
     filters::{Command, Text},
     Bot, Dispatcher, Router,
 };
-use tokio::sync::Mutex;
 use tracing::{event, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
 
-fn get_database_url_by_config(config: &Database) -> String {
-    format!(
-        "postgres://{user}:{password}@{host}:{port}/{db}",
-        user = config.user,
-        password = config.password,
-        host = config.host,
-        port = config.port,
-        db = config.db,
-    )
-}
-
-async fn start_media_parser_workers<UoW>(
-    uow: Arc<Mutex<UoW>>,
-    nekos_best: NekosBest,
-    nekos_fun: NekosFun,
-    waifu_pics: WaifuPics,
-) where
-    UoW: UnitOfWork + Send + 'static,
-{
-    tokio::join!(
-        async {
-            event!(Level::INFO, "Worker manager for `nekos_best` started");
-
-            match tokio::spawn(start_worker_manager_and_save(
-                WorkerManager::default(),
-                nekos_fun,
-                uow.clone(),
-            ))
-            .await
-            {
-                Ok(Ok(_)) => {
-                    event!(Level::INFO, "Worker manager for `nekos_fun` stopped");
-                }
-                Ok(Err(err)) => {
-                    event!(Level::ERROR, error = ?err, "Worker manager for `nekos_fun` stopped with error");
-                }
-                Err(err) => {
-                    event!(Level::ERROR, error = ?err, "Worker manager for `nekos_fun` panicked");
-                }
-            }
-        },
-        async {
-            event!(Level::INFO, "Worker manager for `nekos_best` started");
-
-            match tokio::spawn(start_worker_manager_and_save(
-                WorkerManager::default(),
-                nekos_best,
-                uow.clone(),
-            ))
-            .await
-            {
-                Ok(Ok(_)) => {
-                    event!(Level::INFO, "Worker manager for `nekos_best` stopped");
-                }
-                Ok(Err(err)) => {
-                    event!(Level::ERROR, error = ?err, "Worker manager for `nekos_best` stopped with error");
-                }
-                Err(err) => {
-                    event!(Level::ERROR, error = ?err, "Worker manager for `nekos_best` panicked");
-                }
-            }
-        },
-        async {
-            event!(Level::INFO, "Worker manager for `waifu_pics` started");
-
-            match tokio::spawn(start_worker_manager_and_save(
-                WorkerManager::default(),
-                waifu_pics,
-                uow.clone(),
-            ))
-            .await
-            {
-                Ok(Ok(_)) => {
-                    event!(Level::INFO, "Worker manager for `waifu_pics` stopped");
-                }
-                Ok(Err(err)) => {
-                    event!(Level::ERROR, error = ?err, "Worker manager for `waifu_pics` stopped with error");
-                }
-                Err(err) => {
-                    event!(Level::ERROR, error = ?err, "Worker manager for `waifu_pics` panicked");
-                }
-            }
-        },
-    );
-}
-
 #[tokio::main(flavor = "current_thread")]
+#[allow(clippy::too_many_lines)]
 async fn main() {
     let config = match read_config_from_env() {
         Ok(config) => {
@@ -131,12 +41,12 @@ async fn main() {
         }
         Err(err) => {
             eprintln!("Error reading config from env: {err}");
+
             std::process::exit(1);
         }
     };
 
-    let url = get_database_url_by_config(&config.database);
-    let pool = match PgPool::connect(&url).await {
+    let pool = match PgPool::connect(&config.database.get_postgres_url()).await {
         Ok(pool) => {
             event!(Level::DEBUG, "Database pool created");
 
@@ -151,31 +61,27 @@ async fn main() {
 
     let mut main_router = Router::new("main");
 
-    let database_middleware = DatabaseMiddleware::new(pool.clone());
-    let acl_middleware = ACLMiddleware::<SqlxUnitOfWorkFactory<Postgres>>::new();
-
     main_router
         .update
         .outer_middlewares
-        .register(database_middleware.clone());
+        .register(DatabaseMiddleware::new(SqlxUnitOfWorkFactory::new(
+            pool.clone(),
+        )));
     main_router
         .update
         .outer_middlewares
-        .register(acl_middleware);
+        .register(ACLMiddleware::<SqlxUnitOfWorkFactory<Postgres>>::new());
 
     let nekos_best = NekosBest::default();
     let nekos_fun = NekosFun::default();
     let waifu_pics = WaifuPics::default();
 
-    let media_parser_sources_middleware = MediaParserSourcesMiddleware::default()
-        .source(nekos_best.clone())
-        .source(nekos_fun.clone())
-        .source(waifu_pics.clone());
-
-    main_router
-        .message
-        .inner_middlewares
-        .register(media_parser_sources_middleware);
+    main_router.message.inner_middlewares.register(
+        MediaParserSourcesMiddleware::default()
+            .source(nekos_best.clone())
+            .source(nekos_fun.clone())
+            .source(waifu_pics.clone()),
+    );
 
     let mut user_router = Router::new("users");
 
@@ -223,14 +129,31 @@ async fn main() {
 
     main_router.include(user_router);
 
+    if config.media_parser_worker.start_worker {
+        main_router.startup.register(
+            |nekos_fun, nekos_best, waifu_pics, pool| async {
+                tokio::spawn(worker::run_pollings(
+                    nekos_fun,
+                    nekos_best,
+                    waifu_pics,
+                    SqlxUnitOfWorkFactory::new(pool),
+                ));
+
+                Ok(())
+            },
+            (nekos_fun, nekos_best, waifu_pics, pool.clone()),
+        );
+    } else {
+        event!(Level::WARN, "Media parser worker disabled. To enable it set `START_MEDIA_PARSER_WORKER` to `true` in env");
+    }
+
     // Shutdown the connection pool
     main_router.shutdown.register(
-        |database_middleware: DatabaseMiddleware<_>| async {
-            database_middleware.close().await;
-
+        |pool| async move {
+            Pool::close(&pool).await;
             Ok(())
         },
-        (database_middleware,),
+        (pool,),
     );
 
     let bot = Bot::new(config.bot.token);
@@ -241,36 +164,17 @@ async fn main() {
         .router(main_router)
         .build();
 
-    let media_parser_worker = if config.media_parser_worker.start_worker {
-        let uow = Arc::new(Mutex::new(SqlxUnitOfWork::new(pool)));
-
-        Some(tokio::spawn(start_media_parser_workers(
-            uow.clone(),
-            nekos_best,
-            nekos_fun,
-            waifu_pics,
-        )))
-    } else {
-        event!(Level::WARN, "Media parser worker disabled. To enable it set `START_MEDIA_PARSER_WORKER` to `true` in env");
-
-        None
-    };
-
     match dispatcher
         .to_service_provider_default()
         .unwrap()
         .run_polling()
         .await
     {
-        Ok(_) => {
+        Ok(()) => {
             event!(Level::WARN, "Bot stopped");
         }
         Err(err) => {
-            event!(Level::ERROR, error = ?err, "Bot stopped with error");
+            event!(Level::ERROR, %err, "Bot stopped with error");
         }
-    }
-
-    if let Some(media_parser_worker) = media_parser_worker {
-        media_parser_worker.abort();
     }
 }

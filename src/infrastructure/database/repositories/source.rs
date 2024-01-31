@@ -31,15 +31,15 @@ impl<Conn> SourceRepoImpl<Conn> {
 
 #[async_trait]
 impl<'a> SourceRepo for SourceRepoImpl<&'a mut PgConnection> {
-    async fn create(
+    async fn create<'s>(
         &mut self,
-        source: CreateSource,
+        source: CreateSource<'s>,
     ) -> Result<(), RepoKind<SourceNameAndUrlAlreadyExists>> {
         let (sql, values) = Query::insert()
             .into_table(Alias::new("sources"))
             .columns([Alias::new("id"), Alias::new("name"), Alias::new("url")])
             .values_panic([
-                source.id().into(),
+                (*source.id()).into(),
                 source.name().into(),
                 source.url().into(),
             ])
@@ -80,9 +80,9 @@ impl<Conn> SourceReaderImpl<Conn> {
 #[async_trait]
 impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_id(
+    async fn get_by_id<'s>(
         &mut self,
-        source: GetSourceById,
+        source: GetSourceById<'s>,
     ) -> Result<Source, RepoKind<SourceIdNotExist>> {
         let (sql, values) = Query::select()
             .columns([
@@ -92,7 +92,7 @@ impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
                 Alias::new("created"),
             ])
             .from(Alias::new("sources"))
-            .and_where(Expr::col(Alias::new("id")).eq(source.id()))
+            .and_where(Expr::col(Alias::new("id")).eq(*source.id()))
             .build_sqlx(PostgresQueryBuilder);
 
         sqlx::query_as_with(&sql, values)
@@ -101,14 +101,17 @@ impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
             .map(|source_model: SourceModel| source_model.into())
             .map_err(|err| {
                 if let sqlx::Error::RowNotFound = err {
-                    RepoKind::exception(SourceIdNotExist::new(source.id(), err.to_string()))
+                    RepoKind::exception(SourceIdNotExist::new(*source.id(), err.to_string()))
                 } else {
                     RepoKind::unexpected(err)
                 }
             })
     }
 
-    async fn get_by_name(&mut self, source: GetSourceByName) -> Result<Vec<Source>, RepoError> {
+    async fn get_by_name<'s>(
+        &mut self,
+        source: GetSourceByName<'s>,
+    ) -> Result<Vec<Source>, RepoError> {
         let (sql, values) = Query::select()
             .columns([
                 Alias::new("id"),
@@ -130,9 +133,9 @@ impl<'a> SourceReader for SourceReaderImpl<&'a mut PgConnection> {
     }
 
     #[allow(clippy::redundant_closure_for_method_calls)]
-    async fn get_by_name_and_url(
+    async fn get_by_name_and_url<'s>(
         &mut self,
-        source: GetSourceByNameAndUrl,
+        source: GetSourceByNameAndUrl<'s>,
     ) -> Result<Source, RepoKind<SourceNameAndUrlNotExist>> {
         let (sql, values) = Query::select()
             .columns([

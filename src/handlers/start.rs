@@ -4,10 +4,16 @@ use telers::{
     types::{InlineKeyboardButton, InlineKeyboardMarkup, Message},
     Bot,
 };
-use tracing::instrument;
+use tracing::{event, instrument, Level, Span};
 
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(message_id, user_id))]
 pub async fn start(bot: Bot, message: Message) -> HandlerResult {
+    Span::current()
+        .record("message_id", message.id())
+        .record("user_id", message.from_id());
+
+    event!(Level::DEBUG, "Sending start message");
+
     let text = format!(
         "Hi, {first_name}!\n\n\
         Get an anime GIF or image by genre!\n\

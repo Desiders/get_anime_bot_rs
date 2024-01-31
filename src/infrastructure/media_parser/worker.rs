@@ -2,7 +2,7 @@ use crate::{
     application::{
         common::{
             exceptions::{BeginError, CommitError, RepoError, RepoKind, RollbackError},
-            traits::UnitOfWork,
+            traits::{UnitOfWork, UnitOfWorkFactory},
         },
         media::dto::CreateMedia,
         media_parser::traits::{Source, Worker},
@@ -17,16 +17,13 @@ use crate::{
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff as _, exponential::ExponentialBackoff, SystemClock};
-use std::{borrow::Cow, sync::Arc};
+use std::borrow::Cow;
 use time::OffsetDateTime;
 use tokio::{
-    sync::{
-        mpsc::{channel as tokio_mpsc_channel, Receiver},
-        Mutex,
-    },
+    sync::mpsc::{channel as tokio_mpsc_channel, Receiver},
     time as tokio_time,
 };
-use tracing::{event, instrument, Level};
+use tracing::{event, field::display, instrument, Level, Span};
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
@@ -47,7 +44,7 @@ impl Default for WorkerManager {
 
 #[async_trait]
 impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
-    #[instrument]
+    #[instrument(skip_all, fields(source_name = "nekos_best"))]
     async fn parse(mut self, source: NekosBest<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -65,7 +62,7 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                         Err(err) => {
                             event!(
                                 Level::ERROR,
-                                error = %err,
+                                %err,
                                 "Error getting media list",
                             );
 
@@ -99,7 +96,7 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
-                                error = %err,
+                                %err,
                                 "Error sending media to channel",
                             );
                         }
@@ -123,7 +120,7 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
 #[async_trait]
 impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
-    #[instrument]
+    #[instrument(skip_all, fields(source_name = "nekos_fun"))]
     async fn parse(mut self, source: NekosFun<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -140,7 +137,7 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                         Ok(media_list) => media_list,
                         Err(err) => {
                             event!(Level::ERROR,
-                                error = %err,
+                                %err,
                                 "Error getting media list",
                             );
 
@@ -174,7 +171,7 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     for media in media_list {
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
-                                error = %err,
+                                %err,
                                 "Error sending media to channel",
                             );
                         }
@@ -198,7 +195,7 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
 #[async_trait]
 impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
-    #[instrument]
+    #[instrument(skip_all, fields(source_name = "waifu_pics"))]
     async fn parse(mut self, mut source: WaifuPics<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -215,7 +212,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         Ok(media_list) => media_list,
                         Err(err) => {
                             event!(Level::ERROR,
-                                error = %err,
+                                %err,
                                 "Error getting media list",
                             );
 
@@ -251,7 +248,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
-                                error = %err,
+                                %err,
                                 "Error sending media to channel",
                             );
                         } else {
@@ -291,80 +288,61 @@ pub enum ErrorKind {
     Unexpected(#[from] RepoError),
 }
 
-pub async fn start_worker_manager_and_save<S, UoW>(
+/// Run polling for a source and worker manager.
+/// This function creates a source in the database if it doesn't exist
+/// and then starts polling for media from the source and save them in the database.
+/// # Arguments
+/// * `worker` - Worker manager for the source.
+/// * `source` - Source to parse.
+/// * `uow_factory` - Unit of work factory.
+#[instrument(skip_all, fields(source_id, name = %source.name(), url = %source.url()))]
+pub async fn run_polling<S, UoWFactory>(
     worker: WorkerManager,
     source: S,
-    uow: Arc<Mutex<UoW>>,
+    uow_factory: UoWFactory,
 ) -> Result<(), ErrorKind>
 where
-    S: Source,
+    S: Source + 'static,
     WorkerManager: Worker<S>,
-    UoW: UnitOfWork,
+    UoWFactory: UnitOfWorkFactory,
 {
     let mut source_id = Uuid::new_v4();
 
-    let mut uow_guard = uow.lock().await;
+    Span::current().record("source_id", display(&source_id));
 
-    let create_source_result = uow_guard
+    event!(Level::DEBUG, "Creating source");
+
+    let mut uow = uow_factory.new_unit_of_work();
+
+    let create_source_result = uow
         .source_repo()
         .await?
-        .create(CreateSource::new(
-            source_id,
-            source.name().to_owned(),
-            source.url().to_owned(),
-        ))
+        .create(CreateSource::new(&source_id, source.name(), source.url()))
         .await;
 
-    drop(uow_guard);
-
-    uow_guard = uow.lock().await;
-
     match create_source_result {
-        Ok(_) => {
-            uow_guard.commit().await?;
+        Ok(()) => {
+            uow.commit().await?;
 
-            drop(uow_guard);
-
-            event!(
-                Level::DEBUG,
-                source_name = source.name(),
-                source_url = source.url(),
-                "Source created",
-            );
+            event!(Level::DEBUG, "Source created");
         }
         Err(RepoKind::Exception(_)) => {
-            uow_guard.rollback().await?;
+            uow.rollback().await?;
 
-            drop(uow_guard);
-
-            uow_guard = uow.lock().await;
-
-            let db_source = uow_guard
+            let db_source = uow
                 .source_reader()
                 .await?
-                .get_by_name_and_url(GetSourceByNameAndUrl::new(
-                    Cow::Owned(source.name().to_owned()),
-                    Cow::Owned(source.url().to_owned()),
-                ))
+                .get_by_name_and_url(GetSourceByNameAndUrl::new(source.name(), source.url()))
                 .await?;
 
-            drop(uow_guard);
-
-            event!(
-                Level::DEBUG,
-                source_name = source.name(),
-                source_url = source.url(),
-                "Source already exists",
-            );
+            event!(Level::DEBUG, "Source already exists");
 
             source_id = db_source.id;
         }
         Err(RepoKind::Unexpected(err)) => {
-            uow_guard.rollback().await?;
+            uow.rollback().await?;
 
-            drop(uow_guard);
-
-            event!(Level::ERROR, error = ?err, source_name = source.name(), source_url = source.url(), "Unexpected error while creating source");
+            event!(Level::ERROR, %err, "Unexpected error while creating source");
 
             return Err(err.into());
         }
@@ -373,33 +351,100 @@ where
     let mut receiver = Worker::<S>::parse(worker, source).await;
 
     while let Some(media) = receiver.recv().await {
-        uow_guard = uow.lock().await;
+        let media_id = Uuid::new_v4();
 
-        let create_media_result = uow_guard
+        let create_media_result = uow
             .media_repo()
             .await?
             .create(CreateMedia::new(
-                Uuid::new_v4(),
-                media.url().to_owned(),
-                Some(media.genre().name().to_owned().into()),
+                &media_id,
+                media.url(),
+                Some(media.genre().name()),
                 media.genre().media_type().as_str(),
                 Some(media.genre().is_sfw()),
-                source_id,
+                &source_id,
             ))
             .await;
 
-        drop(uow_guard);
-
-        uow_guard = uow.lock().await;
-
         match create_media_result {
-            Ok(_) => uow_guard.commit().await?,
-            Err(RepoKind::Exception(_)) => uow_guard.rollback().await?,
-            Err(RepoKind::Unexpected(_)) => uow_guard.rollback().await?,
+            Ok(()) => uow.commit().await?,
+            Err(RepoKind::Exception(_)) => uow.rollback().await?,
+            Err(RepoKind::Unexpected(_)) => uow.rollback().await?,
         };
-
-        drop(uow_guard);
     }
 
     Ok(())
+}
+
+/// Run polling for all known sources.
+/// # Arguments
+/// * `uow_factory` - Unit of work factory.
+pub async fn run_pollings<UoWFactory>(
+    nekos_fun: NekosFun,
+    nekos_best: NekosBest,
+    waifu_pics: WaifuPics,
+    uow_factory: UoWFactory,
+) where
+    UoWFactory: UnitOfWorkFactory + Clone + Send + 'static,
+    UoWFactory::UnitOfWork: Send,
+{
+    tokio::join!(
+        async {
+            match tokio::spawn(run_polling(
+                WorkerManager::default(),
+                nekos_fun,
+                uow_factory.clone(),
+            ))
+            .await
+            {
+                Ok(Ok(())) => {
+                    event!(Level::INFO, "Worker manager for `nekos_fun` stopped");
+                }
+                Ok(Err(err)) => {
+                    event!(Level::ERROR, %err, "Worker manager for `nekos_fun` stopped with error");
+                }
+                Err(err) => {
+                    event!(Level::ERROR, %err, "Worker manager for `nekos_fun` panicked");
+                }
+            }
+        },
+        async {
+            match tokio::spawn(run_polling(
+                WorkerManager::default(),
+                nekos_best,
+                uow_factory.clone(),
+            ))
+            .await
+            {
+                Ok(Ok(())) => {
+                    event!(Level::INFO, "Worker manager for `nekos_best` stopped");
+                }
+                Ok(Err(err)) => {
+                    event!(Level::ERROR, %err, "Worker manager for `nekos_best` stopped with error");
+                }
+                Err(err) => {
+                    event!(Level::ERROR, %err, "Worker manager for `nekos_best` panicked");
+                }
+            }
+        },
+        async {
+            match tokio::spawn(run_polling(
+                WorkerManager::default(),
+                waifu_pics,
+                uow_factory.clone(),
+            ))
+            .await
+            {
+                Ok(Ok(())) => {
+                    event!(Level::INFO, "Worker manager for `waifu_pics` stopped");
+                }
+                Ok(Err(err)) => {
+                    event!(Level::ERROR, %err, "Worker manager for `waifu_pics` stopped with error");
+                }
+                Err(err) => {
+                    event!(Level::ERROR, %err, "Worker manager for `waifu_pics` panicked");
+                }
+            }
+        },
+    );
 }

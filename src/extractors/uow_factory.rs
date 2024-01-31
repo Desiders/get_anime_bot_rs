@@ -2,27 +2,38 @@ use crate::application::common::traits::UnitOfWorkFactory;
 
 use std::sync::Arc;
 use telers::{
-    client::Bot,
-    context::Context,
-    errors::ExtractionError,
-    extractors::{from_context_into, FromEventAndContext},
+    client::Bot, context::Context, errors::ExtractionError, extractors::FromEventAndContext,
     types::Update,
 };
 
-pub struct UnitOfWorkFactoryWrapper<UoWFactory>(pub Arc<UoWFactory>)
-where
-    UoWFactory: UnitOfWorkFactory;
+pub struct UoWFactoryWrapper<T: UnitOfWorkFactory>(pub T);
 
-impl<UoW> From<Arc<UoW>> for UnitOfWorkFactoryWrapper<UoW>
+impl<T> FromEventAndContext for UoWFactoryWrapper<T>
 where
-    UoW: UnitOfWorkFactory,
+    T: UnitOfWorkFactory + Clone + 'static,
 {
-    fn from(inner: Arc<UoW>) -> Self {
-        Self(inner)
+    type Error = ExtractionError;
+
+    fn extract(
+        _bot: Arc<Bot>,
+        _update: Arc<Update>,
+        context: Arc<Context>,
+    ) -> Result<Self, Self::Error> {
+        let Some(value) = context.get("uow_factory") else {
+            return Err(ExtractionError::new(concat!(
+                "No found data in context by key `uow_factory`. ",
+                "You didn't forget to add type to context? ",
+            )));
+        };
+
+        match value.downcast_ref::<T>() {
+            Some(value_ref) => Ok(UoWFactoryWrapper((*value_ref).clone())),
+            None => Err(ExtractionError::new(concat!(
+                "Data in context by key `uow_factory` has wrong type expected `",
+                stringify!(T),
+                "`. ",
+                "You didn't forget to add type to context? ",
+            ))),
+        }
     }
 }
-
-from_context_into!(
-    [Client, UoWFactory: UnitOfWorkFactory], Arc<UoWFactory> => UnitOfWorkFactoryWrapper<UoWFactory>,
-    "uow_factory",
-);

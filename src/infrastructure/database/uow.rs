@@ -15,6 +15,7 @@ use crate::application::{
 
 use async_trait::async_trait;
 use sqlx::{Database, Pool, Transaction};
+use tracing::instrument;
 
 impl From<sqlx::Error> for BeginError {
     fn from(error: sqlx::Error) -> Self {
@@ -34,7 +35,6 @@ impl From<sqlx::Error> for RollbackError {
     }
 }
 
-#[derive(Clone)]
 pub struct SqlxUnitOfWorkFactory<DB>
 where
     DB: Database,
@@ -46,8 +46,19 @@ impl<DB> SqlxUnitOfWorkFactory<DB>
 where
     DB: Database,
 {
-    pub fn new(pool: Pool<DB>) -> Self {
+    pub const fn new(pool: Pool<DB>) -> Self {
         Self { pool }
+    }
+}
+
+impl<DB> Clone for SqlxUnitOfWorkFactory<DB>
+where
+    DB: Database,
+{
+    fn clone(&self) -> Self {
+        Self {
+            pool: self.pool.clone(),
+        }
     }
 }
 
@@ -105,20 +116,30 @@ where
 {
     type Connection<'a> = &'a mut DB::Connection where Self: 'a;
 
+    #[instrument(skip_all)]
     async fn connection(&mut self) -> Result<Self::Connection<'_>, BeginError> {
         if self.transaction.is_none() {
-            self.begin().await.unwrap();
+            self.begin().await?;
         }
 
         Ok(self.transaction.as_mut().unwrap())
     }
 
+    #[instrument(skip_all)]
     async fn begin(&mut self) -> Result<(), BeginError> {
-        self.transaction = Some(self.pool.begin().await?);
+        match self.pool.try_begin().await? {
+            Some(transaction) => {
+                self.transaction = Some(transaction);
+            }
+            None => {
+                self.transaction = Some(self.pool.begin().await?);
+            }
+        }
 
         Ok(())
     }
 
+    #[instrument(skip_all)]
     async fn commit(&mut self) -> Result<(), CommitError> {
         if let Some(transaction) = self.transaction.take() {
             transaction.commit().await.map_err(Into::into)
@@ -135,30 +156,37 @@ where
         }
     }
 
+    #[instrument(skip_all)]
     async fn user_repo(&mut self) -> Result<Box<dyn UserRepo + Send + '_>, BeginError> {
         Ok(Box::new(UserRepoImpl::new(self.connection().await?)))
     }
 
+    #[instrument(skip_all)]
     async fn user_reader(&mut self) -> Result<Box<dyn UserReader + Send + '_>, BeginError> {
         Ok(Box::new(UserReaderImpl::new(self.connection().await?)))
     }
 
+    #[instrument(skip_all)]
     async fn source_repo(&mut self) -> Result<Box<dyn SourceRepo + Send + '_>, BeginError> {
         Ok(Box::new(SourceRepoImpl::new(self.connection().await?)))
     }
 
+    #[instrument(skip_all)]
     async fn source_reader(&mut self) -> Result<Box<dyn SourceReader + Send + '_>, BeginError> {
         Ok(Box::new(SourceReaderImpl::new(self.connection().await?)))
     }
 
+    #[instrument(skip_all)]
     async fn media_repo(&mut self) -> Result<Box<dyn MediaRepo + Send + '_>, BeginError> {
         Ok(Box::new(MediaRepoImpl::new(self.connection().await?)))
     }
 
+    #[instrument(skip_all)]
     async fn media_reader(&mut self) -> Result<Box<dyn MediaReader + Send + '_>, BeginError> {
         Ok(Box::new(MediaReaderImpl::new(self.connection().await?)))
     }
 
+    #[instrument(skip_all)]
     async fn user_media_view_repo(
         &mut self,
     ) -> Result<Box<dyn UserMediaViewRepo + Send + '_>, BeginError> {
@@ -167,6 +195,7 @@ where
         )))
     }
 
+    #[instrument(skip_all)]
     async fn user_media_view_reader(
         &mut self,
     ) -> Result<Box<dyn UserMediaViewReader + Send + '_>, BeginError> {

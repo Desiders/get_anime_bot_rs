@@ -17,6 +17,19 @@ pub struct Database {
     pub db: String,
 }
 
+impl Database {
+    pub fn get_postgres_url(&self) -> String {
+        format!(
+            "postgres://{user}:{password}@{host}:{port}/{db}",
+            user = self.user,
+            password = self.password,
+            host = self.host,
+            port = self.port,
+            db = self.db,
+        )
+    }
+}
+
 pub struct MediaParserWorker {
     pub start_worker: bool,
 }
@@ -27,7 +40,7 @@ pub struct Config {
     pub media_parser_worker: MediaParserWorker,
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ErrorKind {
     #[error("env error: {source} for key {key}")]
     Env {

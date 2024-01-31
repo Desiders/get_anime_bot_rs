@@ -6,10 +6,16 @@ use telers::{
     utils::text::html_text_link,
     Bot,
 };
-use tracing::instrument;
+use tracing::{event, instrument, Level, Span};
 
-#[instrument(skip_all)]
+#[instrument(skip_all, fields(message_id, user_id))]
 pub async fn source(bot: Bot, message: Message) -> HandlerResult {
+    Span::current()
+        .record("message_id", message.id())
+        .record("user_id", message.from_id());
+
+    event!(Level::DEBUG, "Sending source message");
+
     let text = format!(
         "The bot has open source code!\n\n{source_link}",
         source_link = html_text_link(
