@@ -3,22 +3,22 @@ version: "3.9"
 services:
   bot:
     container_name: get_anime_bot.bot
-    restart: "on-failure"
+    restart: "unless-stopped"
     env_file:
       - ".env"
     build:
       context: .
+    networks:
+      - get_anime_bot.postgres.network
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - get_anime_bot.postgres.network
 
   postgres:
     container_name: get_anime_bot.postgres
     image: "postgres:15-alpine"
     hostname: get_anime_bot.postgres
-    restart: unless-stopped
+    restart: "unless-stopped"
     expose:
       - "5432"
     ports:

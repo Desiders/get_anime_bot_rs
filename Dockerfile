@@ -1,18 +1,20 @@
-FROM debian:buster-slim AS base
+FROM debian:bullseye-slim AS base
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq5 \
     && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /app
-COPY . .
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
 
-FROM rust:1.71-buster AS build
+FROM rust:1.74.1-slim-bullseye AS build
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libssl-dev \
+    && apt-get install -y --no-install-recommends pkg-config \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
 WORKDIR /usr/src/app
 RUN USER=root cargo init
 COPY ./Cargo.toml .
 RUN cargo build --release
 COPY ./src ./src
-# https://users.rust-lang.org/t/dockerfile-with-cached-dependencies-does-not-recompile-the-main-rs-file/21577
 RUN touch src/main.rs && cargo build --release
 
 FROM base AS final
