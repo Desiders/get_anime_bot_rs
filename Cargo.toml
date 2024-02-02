@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-telers = { git = "https://github.com/Desiders/telers", rev = "ffddb58" }
-tokio = { version = "1.28", features = [
+telers = { git = "https://github.com/Desiders/telers", rev = "19f30c9" }
+tokio = { version = "1.36", features = [
     "macros",
     "sync",
 ] }
@@ -15,7 +15,7 @@ sqlx = { version = "0.7", features = [
     "migrate",
     "time",
 ] }
-uuid = { version = "1.3", features = [
+uuid = { version = "1.7", features = [
     "v4", "fast-rng",
 ] }
 serde = { version = "1.0", features = ["derive"] }
@@ -35,8 +35,11 @@ time = "0.3"
 async-trait = "0.1"
 lazy_static = "1.4"
 
+[profile.dev]
+# Disabling debug info speeds up builds a bunch and we don't rely on it for debugging that much.
+debug = 0
+
 [profile.release]
 lto = true
-strip = true
 opt-level = 3
 codegen-units = 1
