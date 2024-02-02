@@ -2,6 +2,7 @@ use time::OffsetDateTime;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(clippy::struct_field_names)]
 pub struct Media {
     pub id: Uuid,
     pub url: String,

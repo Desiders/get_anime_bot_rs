@@ -6,6 +6,7 @@ use sqlx::{
 use crate::domain::media::entities::Media as MediaEntity;
 
 #[derive(Debug, Clone, PartialEq, Eq, FromRow)]
+#[allow(clippy::struct_field_names)]
 pub struct Media {
     pub id: Uuid,
     pub url: String,

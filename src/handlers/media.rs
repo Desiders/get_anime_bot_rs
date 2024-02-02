@@ -216,7 +216,7 @@ where
     }
 
     #[allow(clippy::cast_sign_loss)]
-    let count_media = if let Some(Ok(count)) = args.get(0).map(|arg| arg.parse::<i8>()) {
+    let count_media = if let Some(Ok(count)) = args.first().map(|arg| arg.parse::<i8>()) {
         if count > 10 {
             10
         } else if count <= 0 {

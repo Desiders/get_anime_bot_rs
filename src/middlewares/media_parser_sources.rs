@@ -24,15 +24,12 @@ impl MediaParserSources {
 }
 
 #[async_trait]
-impl<Client> InnerMiddleware<Client> for MediaParserSources
-where
-    Client: Send + Sync + 'static,
-{
+impl InnerMiddleware for MediaParserSources {
     async fn call(
         &self,
-        request: HandlerRequest<Client>,
-        next: Next<Client>,
-    ) -> Result<HandlerResponse<Client>, EventErrorKind> {
+        request: HandlerRequest,
+        next: Next,
+    ) -> Result<HandlerResponse, EventErrorKind> {
         request
             .context
             .insert("media_parser_sources", Box::new(self.sources.clone()));

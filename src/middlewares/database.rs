@@ -9,26 +9,22 @@ use telers::{
 };
 
 #[derive(Clone)]
-pub struct Database<UoWFactory> {
-    uow_factory: UoWFactory,
+pub struct Database<T> {
+    uow_factory: T,
 }
 
-impl<UoWFactory> Database<UoWFactory> {
-    pub const fn new(uow_factory: UoWFactory) -> Self {
+impl<T> Database<T> {
+    pub const fn new(uow_factory: T) -> Self {
         Self { uow_factory }
     }
 }
 
 #[async_trait]
-impl<UoWFactory, Client> Middleware<Client> for Database<UoWFactory>
+impl<T> Middleware for Database<T>
 where
-    UoWFactory: UnitOfWorkFactory + Clone + Send + Sync + 'static,
-    Client: Send + Sync + 'static,
+    T: UnitOfWorkFactory + Clone + Send + Sync + 'static,
 {
-    async fn call(
-        &self,
-        request: Request<Client>,
-    ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
+    async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
         request
             .context
             .insert("uow_factory", Box::new(self.uow_factory.clone()));

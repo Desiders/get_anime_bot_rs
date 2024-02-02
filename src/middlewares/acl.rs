@@ -45,18 +45,14 @@ impl<UoWFactory> Clone for ACL<UoWFactory> {
 impl<UoWFactory> Copy for ACL<UoWFactory> {}
 
 #[async_trait]
-impl<UoWFactory, Client> Middleware<Client> for ACL<UoWFactory>
+impl<UoWFactory> Middleware for ACL<UoWFactory>
 where
     UoWFactory: UnitOfWorkFactory + Send + Sync + 'static,
     for<'a> UoWFactory::UnitOfWork:
         UnitOfWork<Connection<'a> = &'a mut PgConnection> + Send + Sync + 'static,
-    Client: Send + Sync + 'static,
 {
     #[instrument(skip_all, fields(user_id))]
-    async fn call(
-        &self,
-        request: Request<Client>,
-    ) -> Result<MiddlewareResponse<Client>, EventErrorKind> {
+    async fn call(&self, request: Request) -> Result<MiddlewareResponse, EventErrorKind> {
         let context = request.context.clone();
 
         let Some(user_id) = request.update.from_id() else {
