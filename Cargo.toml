@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-telers = { git = "https://github.com/Desiders/telers", rev = "19f30c9" }
+telers = "1.0.0-alpha.15"
 tokio = { version = "1.36", features = [
     "macros",
     "sync",
