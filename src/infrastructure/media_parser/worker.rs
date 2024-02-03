@@ -23,7 +23,7 @@ use tokio::{
     sync::mpsc::{channel as tokio_mpsc_channel, Receiver},
     time as tokio_time,
 };
-use tracing::{event, field::display, instrument, Level, Span};
+use tracing::{event, instrument, Level};
 use uuid::Uuid;
 
 #[allow(clippy::module_name_repetitions)]
@@ -44,7 +44,6 @@ impl Default for WorkerManager {
 
 #[async_trait]
 impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
-    #[instrument(skip_all, fields(source_name = "nekos_best"))]
     async fn parse(mut self, source: NekosBest<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -63,11 +62,16 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                             event!(
                                 Level::ERROR,
                                 %err,
+                                source = source.name(),
                                 "Error getting media list",
                             );
 
                             if let Some(duration) = self.backoff.next_backoff() {
-                                event!(Level::WARN, "Sleep and try again at {duration:2?}",);
+                                event!(
+                                    Level::WARN,
+                                    source = source.name(),
+                                    "Sleep and try again at {duration:2?}",
+                                );
 
                                 tokio_time::sleep(duration).await;
                             }
@@ -77,7 +81,11 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        event!(Level::INFO, "Connection established successfully",);
+                        event!(
+                            Level::INFO,
+                            source = source.name(),
+                            "Connection established successfully",
+                        );
 
                         failed = false;
 
@@ -89,7 +97,8 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
                     event!(
-                        Level::DEBUG,
+                        Level::TRACE,
+                        source = source.name(),
                         "Media list with {media_list_len} media parsed in {elapsed} seconds",
                     );
 
@@ -97,19 +106,13 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
                                 %err,
+                                source = source.name(),
                                 "Error sending media to channel",
                             );
                         }
                     }
 
-                    let elapsed_with_send = (OffsetDateTime::now_utc() - now).as_seconds_f32();
-
-                    if elapsed_with_send < 1.0 {
-                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(
-                            1.0 - elapsed_with_send,
-                        ))
-                        .await;
-                    }
+                    tokio_time::sleep(tokio_time::Duration::from_secs_f32(0.5)).await;
                 }
             }
         });
@@ -120,7 +123,6 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
 #[async_trait]
 impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
-    #[instrument(skip_all, fields(source_name = "nekos_fun"))]
     async fn parse(mut self, source: NekosFun<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -138,11 +140,16 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                         Err(err) => {
                             event!(Level::ERROR,
                                 %err,
+                                source = source.name(),
                                 "Error getting media list",
                             );
 
                             if let Some(duration) = self.backoff.next_backoff() {
-                                event!(Level::WARN, "Sleep and try again at {duration:2?}",);
+                                event!(
+                                    Level::WARN,
+                                    source = source.name(),
+                                    "Sleep and try again at {duration:2?}",
+                                );
 
                                 tokio_time::sleep(duration).await;
                             }
@@ -152,7 +159,11 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        event!(Level::INFO, "Connection established successfully",);
+                        event!(
+                            Level::INFO,
+                            source = source.name(),
+                            "Connection established successfully",
+                        );
 
                         failed = false;
 
@@ -164,7 +175,8 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
                     event!(
-                        Level::DEBUG,
+                        Level::TRACE,
+                        source = source.name(),
                         "Media list with {media_list_len} media parsed in {elapsed} seconds",
                     );
 
@@ -172,19 +184,13 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
                                 %err,
+                                source = source.name(),
                                 "Error sending media to channel",
                             );
                         }
                     }
 
-                    let elapsed_with_send = (OffsetDateTime::now_utc() - now).as_seconds_f32();
-
-                    if elapsed_with_send < 1.0 {
-                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(
-                            1.0 - elapsed_with_send,
-                        ))
-                        .await;
-                    }
+                    tokio_time::sleep(tokio_time::Duration::from_secs_f32(1.0)).await;
                 }
             }
         });
@@ -195,7 +201,6 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
 #[async_trait]
 impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
-    #[instrument(skip_all, fields(source_name = "waifu_pics"))]
     async fn parse(mut self, mut source: WaifuPics<reqwest::Client>) -> Receiver<Media> {
         let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
 
@@ -213,11 +218,16 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         Err(err) => {
                             event!(Level::ERROR,
                                 %err,
+                                source = source.name(),
                                 "Error getting media list",
                             );
 
                             if let Some(backoff) = self.backoff.next_backoff() {
-                                event!(Level::WARN, "Sleep and try again at {backoff:2?}");
+                                event!(
+                                    Level::WARN,
+                                    source = source.name(),
+                                    "Sleep and try again at {backoff:2?}"
+                                );
 
                                 tokio_time::sleep(backoff).await;
                             }
@@ -227,7 +237,11 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     };
 
                     if failed {
-                        event!(Level::INFO, "Connection established successfully",);
+                        event!(
+                            Level::INFO,
+                            source = source.name(),
+                            "Connection established successfully",
+                        );
 
                         failed = false;
 
@@ -239,7 +253,8 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                     let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
 
                     event!(
-                        Level::DEBUG,
+                        Level::TRACE,
+                        source = source.name(),
                         "Media list with {media_list_len} media parsed in {elapsed} seconds",
                     );
 
@@ -249,6 +264,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         if let Err(err) = sender.send(media).await {
                             event!(Level::ERROR,
                                 %err,
+                                source = source.name(),
                                 "Error sending media to channel",
                             );
                         } else {
@@ -256,14 +272,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    let elapsed_with_send = (OffsetDateTime::now_utc() - now).as_seconds_f32();
-
-                    if elapsed_with_send < 2.5 {
-                        tokio_time::sleep(tokio_time::Duration::from_secs_f32(
-                            2.5 - elapsed_with_send,
-                        ))
-                        .await;
-                    }
+                    tokio_time::sleep(tokio_time::Duration::from_secs_f32(1.5)).await;
                 }
             }
         });
@@ -295,7 +304,7 @@ pub enum ErrorKind {
 /// * `worker` - Worker manager for the source.
 /// * `source` - Source to parse.
 /// * `uow_factory` - Unit of work factory.
-#[instrument(skip_all, fields(source_id, name = %source.name(), url = %source.url()))]
+#[instrument(skip_all, fields(source = source.name()))]
 pub async fn run_polling<S, UoWFactory>(
     worker: WorkerManager,
     source: S,
@@ -307,8 +316,6 @@ where
     UoWFactory: UnitOfWorkFactory,
 {
     let mut source_id = Uuid::new_v4();
-
-    Span::current().record("source_id", display(&source_id));
 
     event!(Level::DEBUG, "Creating source");
 
@@ -348,6 +355,8 @@ where
         }
     };
 
+    event!(Level::DEBUG, "Starting worker manager");
+
     let mut receiver = Worker::<S>::parse(worker, source).await;
 
     while let Some(media) = receiver.recv().await {
@@ -379,6 +388,7 @@ where
 /// Run polling for all known sources.
 /// # Arguments
 /// * `uow_factory` - Unit of work factory.
+#[instrument(skip_all)]
 pub async fn run_pollings<UoWFactory>(
     nekos_fun: NekosFun,
     nekos_best: NekosBest,
@@ -390,61 +400,34 @@ pub async fn run_pollings<UoWFactory>(
 {
     tokio::join!(
         async {
-            match tokio::spawn(run_polling(
-                WorkerManager::default(),
-                nekos_fun,
-                uow_factory.clone(),
-            ))
-            .await
-            {
-                Ok(Ok(())) => {
-                    event!(Level::INFO, "Worker manager for `nekos_fun` stopped");
-                }
-                Ok(Err(err)) => {
-                    event!(Level::ERROR, %err, "Worker manager for `nekos_fun` stopped with error");
+            match run_polling(WorkerManager::default(), nekos_fun, uow_factory.clone()).await {
+                Ok(()) => {
+                    event!(Level::INFO, "Worker manager stopped for `nekos.fun`");
                 }
                 Err(err) => {
-                    event!(Level::ERROR, %err, "Worker manager for `nekos_fun` panicked");
+                    event!(Level::ERROR, %err, "Worker manager stopped for `nekos.fun`");
                 }
-            }
+            };
         },
         async {
-            match tokio::spawn(run_polling(
-                WorkerManager::default(),
-                nekos_best,
-                uow_factory.clone(),
-            ))
-            .await
-            {
-                Ok(Ok(())) => {
-                    event!(Level::INFO, "Worker manager for `nekos_best` stopped");
-                }
-                Ok(Err(err)) => {
-                    event!(Level::ERROR, %err, "Worker manager for `nekos_best` stopped with error");
+            match run_polling(WorkerManager::default(), nekos_best, uow_factory.clone()).await {
+                Ok(()) => {
+                    event!(Level::INFO, "Worker manager stopped for `nekos.best`");
                 }
                 Err(err) => {
-                    event!(Level::ERROR, %err, "Worker manager for `nekos_best` panicked");
+                    event!(Level::ERROR, %err, "Worker manager stopped for `nekos.best`");
                 }
-            }
+            };
         },
         async {
-            match tokio::spawn(run_polling(
-                WorkerManager::default(),
-                waifu_pics,
-                uow_factory.clone(),
-            ))
-            .await
-            {
-                Ok(Ok(())) => {
-                    event!(Level::INFO, "Worker manager for `waifu_pics` stopped");
-                }
-                Ok(Err(err)) => {
-                    event!(Level::ERROR, %err, "Worker manager for `waifu_pics` stopped with error");
+            match run_polling(WorkerManager::default(), waifu_pics, uow_factory.clone()).await {
+                Ok(()) => {
+                    event!(Level::INFO, "Worker manager stopped for `waifu.pics`");
                 }
                 Err(err) => {
-                    event!(Level::ERROR, %err, "Worker manager for `waifu_pics` panicked");
+                    event!(Level::ERROR, %err, "Worker manager stopped for `waifu.pics`");
                 }
-            }
+            };
         },
     );
 }

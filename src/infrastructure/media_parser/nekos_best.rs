@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use lazy_static::lazy_static;
 use serde::Deserialize;
 use std::{borrow::Cow, collections::HashMap};
+use tracing::{event, instrument, Level};
 
 #[derive(Debug, Clone)]
 pub struct NekosBest<Client = reqwest::Client> {
@@ -90,6 +91,7 @@ impl Source for NekosBest<reqwest::Client> {
         &GENRES
     }
 
+    #[instrument(skip(self))]
     async fn get_media_list_by_genre(
         &self,
         genre: &Genre,
@@ -114,8 +116,14 @@ impl Source for NekosBest<reqwest::Client> {
             .await
             .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
 
-        let api_response: ApiResponse = serde_json::from_str(&content)
-            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
+        let api_response: ApiResponse = match serde_json::from_str(&content) {
+            Ok(api_response) => api_response,
+            Err(err) => {
+                event!(Level::ERROR, %err, "Failed to parse response");
+
+                return Err(MediaGetException::new(genre.clone(), err.to_string()));
+            }
+        };
 
         let mut list = Vec::with_capacity(api_response.results.len());
 
