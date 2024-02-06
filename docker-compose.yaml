@@ -8,11 +8,29 @@ services:
       - ".env"
     build:
       context: .
+      dockerfile: "Dockerfile"
     networks:
       - get_anime_bot.postgres.network
     depends_on:
       postgres:
         condition: service_healthy
+    profiles: ["prod"]
+  
+  bot-dev:
+    container_name: get_anime_bot.bot.dev
+    restart: "unless-stopped"
+    env_file:
+      - ".env"
+    build:
+      context: .
+      dockerfile: "Dockerfile.dev"
+  
+    networks:
+      - get_anime_bot.postgres.network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["dev"]
 
   postgres:
     container_name: get_anime_bot.postgres
