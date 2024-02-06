@@ -18,7 +18,8 @@ pub async fn start(bot: Bot, message: Message) -> HandlerResult {
         "Hi, {first_name}!\n\n\
         Get an anime GIF or image by genre!\n\
         /gifs\n\
-        /images",
+        /images\n\n\
+        /stats",
         first_name = match message.from() {
             Some(user) => &user.first_name,
             None => "anonymous",
