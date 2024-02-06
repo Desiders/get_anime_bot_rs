@@ -10,12 +10,14 @@ use crate::{
             traits::{MediaReader, MediaRepo},
         },
     },
-    domain::media::entities::Media,
-    infrastructure::database::models::Media as MediaModel,
+    domain::media::entities::{GenresStats, Media, MediaStats},
+    infrastructure::database::models::{
+        GenreStats as GenreStatsModel, Media as MediaModel, MediaStats as MediaStatsModel,
+    },
 };
 
 use async_trait::async_trait;
-use sea_query::{Alias, Expr, JoinType, PostgresQueryBuilder, Query};
+use sea_query::{Alias, Expr, Func, JoinType, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
 use sqlx::PgConnection;
 
@@ -228,6 +230,86 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .fetch_all(&mut *self.conn)
             .await
             .map(|media_models: Vec<MediaModel>| media_models.into_iter().map(Into::into).collect())
+            .map_err(Into::into)
+    }
+
+    async fn get_media_stats(&mut self) -> Result<MediaStats, RepoError> {
+        let mut query = Query::select();
+
+        query
+            .expr_as(
+                Func::count(Expr::col(Alias::new("id"))),
+                Alias::new("total"),
+            )
+            .expr_as(
+                Func::count(Expr::case(Expr::col(Alias::new("media_type")).eq("gif"), 1)),
+                Alias::new("gif"),
+            )
+            .expr_as(
+                Func::count(Expr::case(
+                    Expr::col(Alias::new("media_type")).eq("image"),
+                    1,
+                )),
+                Alias::new("image"),
+            )
+            .expr_as(
+                Func::count(Expr::case(
+                    Expr::col(Alias::new("media_type")).eq("unknown"),
+                    1,
+                )),
+                Alias::new("unknown"),
+            )
+            .expr_as(
+                Func::count(Expr::case(Expr::col(Alias::new("is_sfw")).eq(true), 1)),
+                Alias::new("sfw"),
+            )
+            .expr_as(
+                Func::count(Expr::case(Expr::col(Alias::new("is_sfw")).eq(false), 1)),
+                Alias::new("nsfw"),
+            )
+            .from(Alias::new("media"));
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+
+        sqlx::query_as_with(&sql, values)
+            .fetch_one(&mut *self.conn)
+            .await
+            .map(|media_model: MediaStatsModel| media_model.into())
+            .map_err(Into::into)
+    }
+
+    async fn get_genre_stats(&mut self) -> Result<GenresStats, RepoError> {
+        let mut query = Query::select();
+
+        query
+            .expr_as(
+                Func::count(Expr::col(Alias::new("id"))),
+                Alias::new("total"),
+            )
+            .columns([
+                Alias::new("genre"),
+                Alias::new("media_type"),
+                Alias::new("is_sfw"),
+            ])
+            .from(Alias::new("media"))
+            .add_group_by([
+                Expr::col(Alias::new("genre")).into(),
+                Expr::col(Alias::new("media_type")).into(),
+                Expr::col(Alias::new("is_sfw")).into(),
+            ]);
+
+        let (sql, values) = query.build_sqlx(PostgresQueryBuilder);
+
+        sqlx::query_as_with(&sql, values)
+            .fetch_all(&mut *self.conn)
+            .await
+            .map(|genre_stats_models: Vec<GenreStatsModel>| {
+                genre_stats_models
+                    .into_iter()
+                    .map(Into::into)
+                    .collect::<Vec<_>>()
+                    .into()
+            })
             .map_err(Into::into)
     }
 }

@@ -6,7 +6,7 @@ use crate::{
             exceptions::MediaIdNotExist,
         },
     },
-    domain::media::entities::Media as MediaEntity,
+    domain::media::entities::{GenresStats, Media as MediaEntity, MediaStats},
 };
 
 use async_trait::async_trait;
@@ -33,4 +33,8 @@ pub trait MediaReader {
         &mut self,
         media: GetMediaByInfoUnviewedByUser<'s>,
     ) -> Result<Vec<MediaEntity>, RepoError>;
+
+    async fn get_media_stats(&mut self) -> Result<MediaStats, RepoError>;
+
+    async fn get_genre_stats(&mut self) -> Result<GenresStats, RepoError>;
 }

@@ -103,6 +103,10 @@ async fn main() {
         .filter(Command::one("images"));
     user_router
         .message
+        .register(handlers::stats::stats::<SqlxUnitOfWorkFactory<Postgres>>)
+        .filter(Command::many(["stats", "statistics"]));
+    user_router
+        .message
         .register(handlers::user::settings)
         .filter(Command::one("settings"));
     user_router
