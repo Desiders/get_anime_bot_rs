@@ -13,7 +13,9 @@ A telegram bot written to easily get anime images and GIF files of different gen
 - Install [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
 - Clone this repository `git clone https://github.com/Desiders/get_anime_bot_rs.git`
 - Copy `.env.example` to `.env` and fill it with your data
-- Run `docker compose up -d` to start the project
+- Run `docker compose --profile dev up` to start the project in development mode or `docker compose --profile prod up` in production mode.
+<br>
+You can also use `just` to run the project with `just run-docker` or `just run-docker-prod` commands
 
 
 ## Migrations
@@ -33,6 +35,10 @@ $ sqlx migrate run --source ./src/infrastructure/database/migrations --database-
 Run a migration:
 ```bash
 $ sqlx migrate run --source ./src/infrastructure/database/migrations --database-url postgres://{user}:{password}@{host}:{port}/{db}
+```
+Example:
+```bash
+$ sqlx migrate run --source ./src/infrastructure/database/migrations --database-url postgres://admin:secretpass@127.0.0.1:5432/get_anime_bot
 ```
 
 For more info, check `README.md` file of [`sqlx-cli`](https://crates.io/crates/sqlx-cli) crate and [`docker-compose`](https://docs.docker.com/compose/compose-file/compose-file-v3/) file docs.
