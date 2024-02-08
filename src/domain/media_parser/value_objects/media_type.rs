@@ -31,7 +31,7 @@ impl MediaType {
     pub const fn as_str(self) -> &'static str {
         match self {
             Self::Gif => "gif",
-            Self::Image => "image",
+            Self::Image => "img",
             Self::Unknown => "unknown",
         }
     }
@@ -49,7 +49,7 @@ impl<'a> TryFrom<&'a str> for MediaType {
     fn try_from(raw_media_type: &'a str) -> Result<Self, Self::Error> {
         match raw_media_type {
             "gif" => Ok(Self::Gif),
-            "image" => Ok(Self::Image),
+            "img" => Ok(Self::Image),
             "" | "unknown" => Ok(Self::Unknown),
             _ => Err(MediaTypeParseError::new(
                 raw_media_type,
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_media_type_from_str() {
         assert_eq!(MediaType::try_from("gif").unwrap(), MediaType::Gif);
-        assert_eq!(MediaType::try_from("image").unwrap(), MediaType::Image);
+        assert_eq!(MediaType::try_from("img").unwrap(), MediaType::Image);
         assert_eq!(MediaType::try_from("unknown").unwrap(), MediaType::Unknown);
         assert_eq!(MediaType::try_from("").unwrap(), MediaType::Unknown);
         assert!(MediaType::try_from("test").is_err());

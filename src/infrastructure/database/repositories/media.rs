@@ -246,10 +246,7 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
                 Alias::new("gif"),
             )
             .expr_as(
-                Func::count(Expr::case(
-                    Expr::col(Alias::new("media_type")).eq("image"),
-                    1,
-                )),
+                Func::count(Expr::case(Expr::col(Alias::new("media_type")).eq("img"), 1)),
                 Alias::new("image"),
             )
             .expr_as(
