@@ -1,8 +1,10 @@
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
 BEGIN;
 
 /* Create users table. Check `src/infrastructure/database/models/user.rs` */
 CREATE TABLE users (
-    id UUID NOT NULL,
+    id UUID NOT NULL DEFAULT uuid_generate_v4(),
     tg_id BIGINT NOT NULL,
     language_code VARCHAR,
     show_nsfw BOOLEAN DEFAULT false,
@@ -13,7 +15,7 @@ CREATE TABLE users (
 
 /* Create sources table. Check `src/infrastructure/database/models/source.rs` */
 CREATE TABLE sources (
-    id UUID NOT NULL,
+    id UUID NOT NULL DEFAULT uuid_generate_v4(),
     name VARCHAR NOT NULL,
     url VARCHAR NOT NULL,
     created TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -23,7 +25,7 @@ CREATE TABLE sources (
 
 /* Create media table. Check `src/infrastructure/database/models/media.rs` */
 CREATE TABLE media (
-    id UUID NOT NULL,
+    id UUID NOT NULL DEFAULT uuid_generate_v4(),
     url VARCHAR NOT NULL,
     genre VARCHAR,
     media_type VARCHAR NOT NULL,
@@ -37,7 +39,7 @@ CREATE TABLE media (
 
 /* Create user_media_views table. Check `src/infrastructure/database/models/user_media_view.rs` */
 CREATE TABLE user_media_views (
-    id UUID NOT NULL,
+    id UUID NOT NULL DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL,
     media_id UUID NOT NULL,
     created TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
