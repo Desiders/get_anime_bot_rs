@@ -17,7 +17,7 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use sea_query::{Alias, Expr, Func, JoinType, PostgresQueryBuilder, Query};
+use sea_query::{Alias, Expr, Func, JoinType, Order, PostgresQueryBuilder, Query};
 use sea_query_binder::SqlxBinder as _;
 use sqlx::PgConnection;
 
@@ -215,7 +215,8 @@ impl<'a> MediaReader for MediaReaderImpl<&'a mut PgConnection> {
             .and_where(
                 Expr::col((Alias::new("media"), Alias::new("media_type"))).eq(media.media_type()),
             )
-            .and_where(Expr::col((Alias::new("media"), Alias::new("is_sfw"))).eq(media.is_sfw()));
+            .and_where(Expr::col((Alias::new("media"), Alias::new("is_sfw"))).eq(media.is_sfw()))
+            .order_by_expr(Func::random().into(), Order::Asc);
 
         if let Some(offset) = media.offset() {
             query.offset(offset);
