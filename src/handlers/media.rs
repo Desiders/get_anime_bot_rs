@@ -18,7 +18,10 @@ use telers::{
     event::{telegram::HandlerResult, EventReturn},
     filters::CommandObject,
     methods::{SendDocument, SendMessage},
-    types::{InputFile, Message, MessageText, ReplyParameters},
+    types::{
+        InputFile, KeyboardButton, Message, MessageText, ReplyKeyboardMarkup, ReplyKeyboardRemove,
+        ReplyParameters,
+    },
     Bot,
 };
 use tracing::{event, field, instrument, Level, Span};
@@ -79,7 +82,8 @@ pub async fn gifs(
 
     bot.send(
         SendMessage::new(message.chat().id(), text)
-            .reply_parameters(ReplyParameters::new(message.id())),
+            .reply_parameters(ReplyParameters::new(message.id()))
+            .reply_markup(ReplyKeyboardRemove::new(true)),
     )
     .await?;
 
@@ -141,7 +145,8 @@ pub async fn images(
 
     bot.send(
         SendMessage::new(message.chat().id(), text)
-            .reply_parameters(ReplyParameters::new(message.id())),
+            .reply_parameters(ReplyParameters::new(message.id()))
+            .reply_markup(ReplyKeyboardRemove::new(true)),
     )
     .await?;
 
@@ -269,7 +274,12 @@ where
 
         bot.send(
             SendDocument::new(chat.id(), InputFile::url(&media.url))
-                .reply_parameters(ReplyParameters::new(message_id)),
+                .reply_parameters(ReplyParameters::new(message_id))
+                .reply_markup(
+                    ReplyKeyboardMarkup::new([[KeyboardButton::new(format!("/{genre}",))]])
+                        .resize_keyboard(true)
+                        .one_time_keyboard(false),
+                ),
         )
         .await?;
 
@@ -318,7 +328,12 @@ where
 
             bot.send(
                 SendDocument::new(chat.id(), InputFile::url(&media.url))
-                    .reply_parameters(ReplyParameters::new(message_id)),
+                    .reply_parameters(ReplyParameters::new(message_id))
+                    .reply_markup(
+                        ReplyKeyboardMarkup::new([[KeyboardButton::new(format!("/{genre}",))]])
+                            .resize_keyboard(true)
+                            .one_time_keyboard(false),
+                    ),
             )
             .await?;
 
