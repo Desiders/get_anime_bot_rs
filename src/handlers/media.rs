@@ -305,58 +305,54 @@ where
             }
         }
     } else {
-        unimplemented!();
+        event!(
+            Level::DEBUG,
+            count = media_group_len,
+            ?media_group,
+            "Sending media group",
+        );
 
-        // event!(
-        //     Level::DEBUG,
-        //     count = media_group_len,
-        //     ?media_group,
-        //     "Sending media group"
-        // );
+        for media in media_group {
+            event!(Level::DEBUG, ?media, "Sending media");
 
-        // let input_media_group = media_group
-        //     .iter()
-        //     .map(|media| InputMediaDocument::new(InputFile::url(&media.url)));
+            bot.send(
+                SendDocument::new(chat.id(), InputFile::url(&media.url))
+                    .reply_parameters(ReplyParameters::new(message_id)),
+            )
+            .await?;
 
-        // bot.send(SendMediaGroup::new(chat.id(), input_media_group).reply_parameters(ReplyParameters::new(message_id)))
-        //     .await?;
+            let res = uow
+                .user_media_view_repo()
+                .await
+                .map_err(HandlerError::new)?
+                .create(CreateUserMediaView::new(
+                    &Uuid::new_v4(),
+                    &db_user_id,
+                    &media.id,
+                ))
+                .await;
 
-        // event!(Level::DEBUG, "Creating user media views");
+            match res {
+                Ok(()) => {
+                    uow.commit().await.map_err(HandlerError::new)?;
 
-        // for media in media_group {
-        //     let res = uow
-        //         .user_media_view_repo()
-        //         .await
-        //         .map_err(HandlerError::new)?
-        //         .create(CreateUserMediaView::new(
-        //             &Uuid::new_v4(),
-        //             &db_user_id,
-        //             &media.id,
-        //         ))
-        //         .await;
+                    event!(Level::DEBUG, "User media view created");
+                }
 
-        //     match res {
-        //         Ok(()) => {
-        //             uow.commit().await.map_err(HandlerError::new)?;
+                Err(RepoKind::Unexpected(err)) => {
+                    uow.rollback().await.map_err(HandlerError::new)?;
 
-        //             event!(Level::DEBUG, ?media, "User media view created")
-        //         }
-        //         Err(RepoKind::Unexpected(err)) => {
-        //             uow.rollback().await.map_err(HandlerError::new)?;
+                    event!(Level::ERROR, %err, "Failed to create user media view");
 
-        //             event!(Level::ERROR, %err, ?media, "Failed to create user media view");
+                    return Err(HandlerError::new(err));
+                }
+                Err(RepoKind::Exception(_)) => {
+                    uow.rollback().await.map_err(HandlerError::new)?;
 
-        //             return Err(HandlerError::new(err));
-        //         }
-        //         Err(RepoKind::Exception(_)) => {
-        //             uow.rollback().await.map_err(HandlerError::new)?;
-
-        //             event!(Level::WARN, ?media, "User media view already exists");
-        //         }
-        //     }
-        // }
-
-        // event!(Level::DEBUG, "User media views created");
+                    event!(Level::WARN, "User media view already exists");
+                }
+            }
+        }
     }
 
     Ok(EventReturn::Finish)
