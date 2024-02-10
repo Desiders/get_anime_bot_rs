@@ -117,15 +117,23 @@ impl Source for WaifuPics<reqwest::Client> {
             .multipart(form)
             .send()
             .await
-            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?
+            .map_err(|err| {
+                event!(Level::ERROR, %err, "Failed to send request");
+
+                MediaGetException::new(genre.clone(), err.to_string())
+            })?
             .text()
             .await
-            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
+            .map_err(|err| {
+                event!(Level::ERROR, %err, "Failed to get response");
+
+                MediaGetException::new(genre.clone(), err.to_string())
+            })?;
 
         let api_response: ApiResponse = match serde_json::from_str(&content) {
             Ok(api_response) => api_response,
             Err(err) => {
-                event!(Level::ERROR, %err, "Failed to parse response");
+                event!(Level::ERROR, content, %err, "Failed to parse response");
 
                 return Err(MediaGetException::new(genre.clone(), err.to_string()));
             }
