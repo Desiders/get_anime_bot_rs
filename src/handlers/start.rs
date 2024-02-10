@@ -19,7 +19,9 @@ pub async fn start(bot: Bot, message: Message) -> HandlerResult {
         Get an anime GIF or image by genre!\n\
         /gifs\n\
         /images\n\n\
-        /stats",
+        /stats\n\n\
+        You can also pass media count you want to get. For example:\n\
+        /neko_img_sfw 5\n",
         first_name = match message.from() {
             Some(user) => &user.first_name,
             None => "anonymous",

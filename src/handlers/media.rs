@@ -312,6 +312,7 @@ where
             "Sending media group",
         );
 
+        // We don't use media group here, because telegram doesn't support sending media group with gifs.
         for media in media_group {
             event!(Level::DEBUG, ?media, "Sending media");
 
