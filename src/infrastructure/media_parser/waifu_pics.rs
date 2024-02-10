@@ -12,9 +12,8 @@ use crate::{
 use age_restriction::AgeRestriction;
 use async_trait::async_trait;
 use lazy_static::lazy_static;
-use reqwest::multipart::Form;
 use serde::Deserialize;
-use std::borrow::Cow;
+use std::{borrow::Cow, vec};
 use tracing::{event, instrument, Level};
 
 #[derive(Debug, Clone)]
@@ -53,7 +52,7 @@ impl Default for WaifuPics {
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
-    files: Vec<String>,
+    url: String,
 }
 
 #[async_trait]
@@ -102,19 +101,14 @@ impl Source for WaifuPics<reqwest::Client> {
             }
         };
         let url = format!(
-            "{api_url}/many/{age_restriction}/{genre}",
+            "{api_url}/{age_restriction}/{genre}",
             api_url = self.url,
             genre = genre.name()
         );
 
-        let exclude_urls = serde_json::to_string(&self.exclude_urls)
-            .map_err(|err| MediaGetException::new(genre.clone(), err.to_string()))?;
-        let form = Form::new().text("exclude", exclude_urls);
-
         let content = self
             .client
-            .post(&url)
-            .multipart(form)
+            .get(&url)
             .send()
             .await
             .map_err(|err| {
@@ -139,13 +133,7 @@ impl Source for WaifuPics<reqwest::Client> {
             }
         };
 
-        let mut list = Vec::with_capacity(api_response.files.len());
-
-        for file in api_response.files {
-            list.push(Media::new(file, genre.clone()));
-        }
-
-        Ok(list)
+        Ok(vec![Media::new(api_response.url, genre.clone())])
     }
 }
 

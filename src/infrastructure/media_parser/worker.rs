@@ -111,8 +111,6 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                             );
                         }
                     }
-
-                    tokio_time::sleep(tokio_time::Duration::from_secs_f32(0.5)).await;
                 }
             }
         });
@@ -189,8 +187,6 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                             );
                         }
                     }
-
-                    tokio_time::sleep(tokio_time::Duration::from_secs_f32(1.0)).await;
                 }
             }
         });
@@ -271,8 +267,6 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                             source.exclude_url(media_url);
                         }
                     }
-
-                    tokio_time::sleep(tokio_time::Duration::from_secs_f32(1.5)).await;
                 }
             }
         });
