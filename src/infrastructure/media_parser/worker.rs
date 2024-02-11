@@ -17,7 +17,7 @@ use crate::{
 
 use async_trait::async_trait;
 use backoff::{backoff::Backoff as _, exponential::ExponentialBackoff, SystemClock};
-use std::borrow::Cow;
+use std::{borrow::Cow, time::Duration};
 use time::OffsetDateTime;
 use tokio::{
     sync::mpsc::{channel as tokio_mpsc_channel, Receiver},
@@ -111,6 +111,8 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                             );
                         }
                     }
+
+                    tokio::time::sleep(Duration::from_secs(1)).await;
                 }
             }
         });
@@ -187,6 +189,8 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                             );
                         }
                     }
+
+                    tokio::time::sleep(Duration::from_millis(500)).await;
                 }
             }
         });
@@ -267,6 +271,8 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                             source.exclude_url(media_url);
                         }
                     }
+
+                    tokio::time::sleep(Duration::from_millis(500)).await;
                 }
             }
         });
