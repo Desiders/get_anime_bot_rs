@@ -77,6 +77,10 @@ where
 
         let mut uow = uow_factory.new_unit_of_work();
 
+        // We need to drop the result to release the lock on the context,
+        // because without it inserting value can cause a deadlock
+        drop(result);
+
         let get_user_result = uow
             .user_reader()
             .await
