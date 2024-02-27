@@ -18,12 +18,29 @@ use middlewares::{
 };
 use sqlx::{PgPool, Pool, Postgres};
 use telers::{
+    errors::HandlerError,
     event::ToServiceProvider,
     filters::{Command, Text},
+    methods::SetMyCommands,
+    types::{BotCommand, BotCommandScopeAllPrivateChats},
     Bot, Dispatcher, Router,
 };
 use tracing::{event, Level};
 use tracing_subscriber::{fmt, layer::SubscriberExt as _, util::SubscriberInitExt as _, EnvFilter};
+
+async fn set_my_commands(bot: Bot) -> Result<(), HandlerError> {
+    let help_command = BotCommand::new("help", "Show help message");
+    let source_command = BotCommand::new("source", "Show source of the bot");
+    let gifs_command = BotCommand::new("gifs", "Get random gifs");
+    let images_command = BotCommand::new("images", "Get random images");
+
+    let private_chats = [help_command, source_command, gifs_command, images_command];
+
+    bot.send(SetMyCommands::new(private_chats.clone()).scope(BotCommandScopeAllPrivateChats {}))
+        .await?;
+
+    Ok(())
+}
 
 #[tokio::main(flavor = "current_thread")]
 #[allow(clippy::too_many_lines)]
@@ -161,6 +178,10 @@ async fn main() {
     );
 
     let bot = Bot::new(config.bot.token);
+
+    main_router
+        .startup
+        .register(set_my_commands, (bot.clone(),));
 
     let dispatcher = Dispatcher::builder()
         .bot(bot)
