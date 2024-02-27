@@ -8,6 +8,8 @@ A telegram bot written to easily get anime images and GIF files of different gen
 
 </div>
 
+Telegram: [@get_neko_bot](https://t.me/get_neko_bot)
+
 ## Installation
 
 - Install [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
