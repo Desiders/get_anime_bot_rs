@@ -16,7 +16,11 @@ use crate::{
 };
 
 use async_trait::async_trait;
-use backoff::{backoff::Backoff as _, exponential::ExponentialBackoff, SystemClock};
+use backoff::{
+    backoff::Backoff as _,
+    exponential::{ExponentialBackoff, ExponentialBackoffBuilder},
+    SystemClock,
+};
 use std::{borrow::Cow, time::Duration};
 use time::OffsetDateTime;
 use tokio::{
@@ -37,7 +41,12 @@ impl Default for WorkerManager {
     fn default() -> Self {
         Self {
             channel_buffer: 100,
-            backoff: ExponentialBackoff::default(),
+            backoff: ExponentialBackoffBuilder::new()
+                .with_initial_interval(Duration::from_secs(2))
+                .with_multiplier(2.5)
+                .with_max_interval(Duration::from_secs(120))
+                .with_max_elapsed_time(Some(Duration::from_secs(3600)))
+                .build(),
         }
     }
 }
