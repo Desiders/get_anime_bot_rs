@@ -9,6 +9,9 @@ services:
       dockerfile: "Dockerfile"
     networks:
       - get_anime_bot.postgres.network
+    logging:
+      options:
+        max-size: "100m"
     depends_on:
       postgres:
         condition: service_healthy
@@ -22,7 +25,6 @@ services:
     build:
       context: .
       dockerfile: "Dockerfile.dev"
-  
     networks:
       - get_anime_bot.postgres.network
     depends_on:
