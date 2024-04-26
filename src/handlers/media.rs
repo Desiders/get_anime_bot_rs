@@ -19,8 +19,8 @@ use telers::{
     filters::CommandObject,
     methods::{SendDocument, SendMessage},
     types::{
-        InputFile, KeyboardButton, Message, MessageText, ReplyKeyboardMarkup, ReplyKeyboardRemove,
-        ReplyParameters,
+        Chat, InputFile, KeyboardButton, Message, MessageText, ReplyKeyboardMarkup,
+        ReplyKeyboardRemove, ReplyParameters,
     },
     Bot,
 };
@@ -272,14 +272,19 @@ where
 
         event!(Level::DEBUG, ?media, "Sending media");
 
+        let reply_markup = match chat {
+            Chat::Private(_) => Some(
+                ReplyKeyboardMarkup::new([[KeyboardButton::new(format!("/{genre}",))]])
+                    .resize_keyboard(true)
+                    .one_time_keyboard(false),
+            ),
+            _ => None,
+        };
+
         bot.send(
             SendDocument::new(chat.id(), InputFile::url(&media.url))
                 .reply_parameters(ReplyParameters::new(message_id))
-                .reply_markup(
-                    ReplyKeyboardMarkup::new([[KeyboardButton::new(format!("/{genre}",))]])
-                        .resize_keyboard(true)
-                        .one_time_keyboard(false),
-                ),
+                .reply_markup_option(reply_markup),
         )
         .await?;
 
@@ -322,18 +327,24 @@ where
             "Sending media group",
         );
 
+        let reply_parameters = ReplyParameters::new(message_id);
+        let reply_markup = match chat {
+            Chat::Private(_) => Some(
+                ReplyKeyboardMarkup::new([[KeyboardButton::new(format!("/{genre}",))]])
+                    .resize_keyboard(true)
+                    .one_time_keyboard(false),
+            ),
+            _ => None,
+        };
+
         // We don't use media group here, because telegram doesn't support sending media group with gifs.
         for media in media_group {
             event!(Level::DEBUG, ?media, "Sending media");
 
             bot.send(
                 SendDocument::new(chat.id(), InputFile::url(&media.url))
-                    .reply_parameters(ReplyParameters::new(message_id))
-                    .reply_markup(
-                        ReplyKeyboardMarkup::new([[KeyboardButton::new(format!("/{genre}",))]])
-                            .resize_keyboard(true)
-                            .one_time_keyboard(false),
-                    ),
+                    .reply_parameters(reply_parameters.clone())
+                    .reply_markup_option(reply_markup.clone()),
             )
             .await?;
 
