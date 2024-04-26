@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   bot:
     container_name: get_anime_bot.bot
