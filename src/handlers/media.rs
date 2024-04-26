@@ -281,12 +281,24 @@ where
             _ => None,
         };
 
-        bot.send(
-            SendDocument::new(chat.id(), InputFile::url(&media.url))
-                .reply_parameters(ReplyParameters::new(message_id))
-                .reply_markup_option(reply_markup),
-        )
-        .await?;
+        match reply_markup {
+            Some(ref markup) => {
+                bot.send(
+                    SendDocument::new(chat.id(), InputFile::url(&media.url))
+                        .reply_parameters(ReplyParameters::new(message_id))
+                        .reply_markup(markup.clone()),
+                )
+                .await?;
+            }
+            None => {
+                bot.send(
+                    SendDocument::new(chat.id(), InputFile::url(&media.url))
+                        .reply_parameters(ReplyParameters::new(message_id))
+                        .reply_markup(ReplyKeyboardRemove::new(true)),
+                )
+                .await?;
+            }
+        }
 
         let res = uow
             .user_media_view_repo()
@@ -341,12 +353,24 @@ where
         for media in media_group {
             event!(Level::DEBUG, ?media, "Sending media");
 
-            bot.send(
-                SendDocument::new(chat.id(), InputFile::url(&media.url))
-                    .reply_parameters(reply_parameters.clone())
-                    .reply_markup_option(reply_markup.clone()),
-            )
-            .await?;
+            match reply_markup {
+                Some(ref markup) => {
+                    bot.send(
+                        SendDocument::new(chat.id(), InputFile::url(&media.url))
+                            .reply_parameters(reply_parameters.clone())
+                            .reply_markup(markup.clone()),
+                    )
+                    .await?;
+                }
+                None => {
+                    bot.send(
+                        SendDocument::new(chat.id(), InputFile::url(&media.url))
+                            .reply_parameters(reply_parameters.clone())
+                            .reply_markup(ReplyKeyboardRemove::new(true)),
+                    )
+                    .await?;
+                }
+            }
 
             let res = uow
                 .user_media_view_repo()
