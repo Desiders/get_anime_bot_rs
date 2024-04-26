@@ -52,6 +52,8 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
 
             let mut failed = false;
 
+            self.backoff.reset();
+
             loop {
                 for genre in genres.iter() {
                     let now = OffsetDateTime::now_utc();
@@ -65,6 +67,8 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                                 source = source.name(),
                                 "Error getting media list",
                             );
+
+                            failed = true;
 
                             if let Some(duration) = self.backoff.next_backoff() {
                                 event!(
@@ -112,7 +116,7 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    tokio::time::sleep(Duration::from_secs(3)).await;
                 }
             }
         });
@@ -131,6 +135,8 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
 
             let mut failed = false;
 
+            self.backoff.reset();
+
             loop {
                 for genre in genres.iter() {
                     let now = OffsetDateTime::now_utc();
@@ -143,6 +149,8 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                                 source = source.name(),
                                 "Error getting media list",
                             );
+
+                            failed = true;
 
                             if let Some(duration) = self.backoff.next_backoff() {
                                 event!(
@@ -190,7 +198,7 @@ impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    tokio::time::sleep(Duration::from_secs(3)).await;
                 }
             }
         });
@@ -209,6 +217,8 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
 
             let mut failed = false;
 
+            self.backoff.reset();
+
             loop {
                 for genre in genres.iter() {
                     let now = OffsetDateTime::now_utc();
@@ -221,6 +231,8 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                                 source = source.name(),
                                 "Error getting media list",
                             );
+
+                            failed = true;
 
                             if let Some(backoff) = self.backoff.next_backoff() {
                                 event!(
@@ -272,7 +284,7 @@ impl Worker<WaifuPics<reqwest::Client>> for WorkerManager {
                         }
                     }
 
-                    tokio::time::sleep(Duration::from_millis(500)).await;
+                    tokio::time::sleep(Duration::from_secs(3)).await;
                 }
             }
         });
