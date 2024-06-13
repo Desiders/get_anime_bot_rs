@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-telers = "1.0.0-alpha.15"
+telers = "1.0.0-alpha.19"
 tokio = { version = "1.36", features = [
     "macros",
     "sync",
