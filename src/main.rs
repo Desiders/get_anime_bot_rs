@@ -10,7 +10,7 @@ mod middlewares;
 use config::read_config_from_env;
 use infrastructure::{
     database::SqlxUnitOfWorkFactory,
-    media_parser::{worker, NekosBest, NekosFun, WaifuPics},
+    media_parser::{worker, NekosBest, WaifuPics},
 };
 use middlewares::{
     Database as DatabaseMiddleware, MediaParserSources as MediaParserSourcesMiddleware,
@@ -90,13 +90,11 @@ async fn main() {
         .register(ACLMiddleware::<SqlxUnitOfWorkFactory<Postgres>>::new());
 
     let nekos_best = NekosBest::default();
-    let nekos_fun = NekosFun::default();
     let waifu_pics = WaifuPics::default();
 
     main_router.message.inner_middlewares.register(
         MediaParserSourcesMiddleware::default()
             .source(nekos_best.clone())
-            .source(nekos_fun.clone())
             .source(waifu_pics.clone()),
     );
 
@@ -152,9 +150,8 @@ async fn main() {
 
     if config.media_parser_worker.start_worker {
         main_router.startup.register(
-            |nekos_fun, nekos_best, waifu_pics, pool| async {
+            |nekos_best, waifu_pics, pool| async {
                 tokio::spawn(worker::run_pollings(
-                    nekos_fun,
                     nekos_best,
                     waifu_pics,
                     SqlxUnitOfWorkFactory::new(pool),
@@ -162,7 +159,7 @@ async fn main() {
 
                 Ok(())
             },
-            (nekos_fun, nekos_best, waifu_pics, pool.clone()),
+            (nekos_best, waifu_pics, pool.clone()),
         );
     } else {
         event!(Level::WARN, "Media parser worker disabled. To enable it set `START_MEDIA_PARSER_WORKER` to `true` in env");

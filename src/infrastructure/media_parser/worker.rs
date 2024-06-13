@@ -12,7 +12,7 @@ use crate::{
         },
     },
     domain::media_parser::entities::Media,
-    infrastructure::media_parser::{NekosBest, NekosFun, WaifuPics},
+    infrastructure::media_parser::{NekosBest, WaifuPics},
 };
 
 use async_trait::async_trait;
@@ -72,88 +72,6 @@ impl Worker<NekosBest<reqwest::Client>> for WorkerManager {
                         Err(err) => {
                             event!(
                                 Level::ERROR,
-                                %err,
-                                source = source.name(),
-                                "Error getting media list",
-                            );
-
-                            failed = true;
-
-                            if let Some(duration) = self.backoff.next_backoff() {
-                                event!(
-                                    Level::WARN,
-                                    source = source.name(),
-                                    "Sleep and try again at {duration:2?}",
-                                );
-
-                                tokio_time::sleep(duration).await;
-                            }
-
-                            continue;
-                        }
-                    };
-
-                    if failed {
-                        event!(
-                            Level::INFO,
-                            source = source.name(),
-                            "Connection established successfully",
-                        );
-
-                        failed = false;
-
-                        self.backoff.reset();
-                    }
-
-                    let media_list_len = media_list.len();
-
-                    let elapsed = (OffsetDateTime::now_utc() - now).as_seconds_f32();
-
-                    event!(
-                        Level::TRACE,
-                        source = source.name(),
-                        "Media list with {media_list_len} media parsed in {elapsed} seconds",
-                    );
-
-                    for media in media_list {
-                        if let Err(err) = sender.send(media).await {
-                            event!(Level::ERROR,
-                                %err,
-                                source = source.name(),
-                                "Error sending media to channel",
-                            );
-                        }
-                    }
-
-                    tokio::time::sleep(Duration::from_secs(3)).await;
-                }
-            }
-        });
-
-        receiver
-    }
-}
-
-#[async_trait]
-impl Worker<NekosFun<reqwest::Client>> for WorkerManager {
-    async fn parse(mut self, source: NekosFun<reqwest::Client>) -> Receiver<Media> {
-        let (sender, receiver) = tokio_mpsc_channel(self.channel_buffer);
-
-        tokio::spawn(async move {
-            let genres = source.genres();
-
-            let mut failed = false;
-
-            self.backoff.reset();
-
-            loop {
-                for genre in genres.iter() {
-                    let now = OffsetDateTime::now_utc();
-
-                    let media_list = match source.get_media_list_by_genre(genre).await {
-                        Ok(media_list) => media_list,
-                        Err(err) => {
-                            event!(Level::ERROR,
                                 %err,
                                 source = source.name(),
                                 "Error getting media list",
@@ -411,7 +329,6 @@ where
 /// * `uow_factory` - Unit of work factory.
 #[instrument(skip_all)]
 pub async fn run_pollings<UoWFactory>(
-    nekos_fun: NekosFun,
     nekos_best: NekosBest,
     waifu_pics: WaifuPics,
     uow_factory: UoWFactory,
@@ -420,16 +337,6 @@ pub async fn run_pollings<UoWFactory>(
     UoWFactory::UnitOfWork: Send,
 {
     tokio::join!(
-        async {
-            match run_polling(WorkerManager::default(), nekos_fun, uow_factory.clone()).await {
-                Ok(()) => {
-                    event!(Level::INFO, "Worker manager stopped for `nekos.fun`");
-                }
-                Err(err) => {
-                    event!(Level::ERROR, %err, "Worker manager stopped for `nekos.fun`");
-                }
-            };
-        },
         async {
             match run_polling(WorkerManager::default(), nekos_best, uow_factory.clone()).await {
                 Ok(()) => {
